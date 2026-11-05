@@ -1,8 +1,8 @@
 {
-  "default_agent": "opencode",
+  "default_agent": "agy",
   "default_model": "opencode/big-pickle",
   "default_workspace": "D:\\free_project",
-  "safe_mode": true,
+  "safe_mode": false,
   "project_roots": [
     "D:\\free_project",
     "D:\\free_project\\laragon\\www"
