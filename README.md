@@ -1,82 +1,149 @@
-# 🤖 Universal AI Agent Telegram Hub (`D:\ai-bot`)
+# 🤖 AI-Bot: Universal AI Agent Telegram Bridge
 
-Sistem jembatan 2-arah antara **HP (Telegram)** dan **Semua AI Agent di PC Anda** (Google Antigravity, OpenCode, Claude Code, Cursor, Windsurf, Aider, Codex, dll.).
-Dibuat menggunakan **100% Python Standard Library** (tanpa perlu `pip install` library tambahan!).
+Jembatan kendali & monitoring 2-arah antara **HP (Telegram)** dan **Semua AI Agent di PC/Laptop Anda** (Google Antigravity, OpenCode, Claude Code, Cursor, Windsurf, Aider, Codex, dll.).
 
----
-
-## 🚀 Langkah 1: Cara Membuat Bot Token Telegram (1 Menit)
-
-Jika belum memiliki Bot Token, ikuti langkah mudah berikut di HP Anda:
-
-1. Buka aplikasi **Telegram** dan cari akun resmi **`@BotFather`** (ada centang biru).
-2. Ketik dan kirim pesan: **`/newbot`**
-3. `@BotFather` akan meminta **nama tampilan** bot Anda. Ketik bebas, misalnya:
-   `Willy AI Agent Hub`
-4. `@BotFather` akan meminta **username** bot (harus unik dan diakhiri kata `bot`). Misalnya:
-   `willy_ai_agent_bot`
-5. Selesai! `@BotFather` akan memberikan **HTTP API Token** (contoh: `7123456789:AAHxyz...`). Salin token tersebut.
+Dibangun menggunakan **100% Python Standard Library** tanpa perlu `pip install` dependensi luar apa pun!
 
 ---
 
-## ⚡ Langkah 2: Menjalankan Bot & Auto-Pairing Chat ID
-
-1. Buka folder `D:\ai-bot` lalu klik 2x file **`start_silent_background.vbs`** (atau jalankan `start_bot.bat` untuk melihat jendela terminal).
-2. Saat pertama kali dijalankan, jika file `.env` belum ada, jalankan lewat `start_bot.bat` dan paste token dari `@BotFather` lalu tekan **Enter** (otomatis tersimpan ke `.env`).
-3. Buka bot baru Anda di Telegram HP, lalu tekan **Start** (atau kirim `/start`).
-4. **Auto-Pairing:** Bot akan langsung mengenali akun Telegram Anda, menyimpan `TELEGRAM_CHAT_ID` Anda secara otomatis ke file `.env`, dan mengunci akses agar **hanya HP Anda** yang bisa memberi perintah ke PC.
-
----
-
-## 🔔 Langkah 3: Mengaktifkan Notifikasi Otomatis dari Semua AI Agent
-
-### A. Untuk Google Antigravity & Claude Code (Otomatis 100% via Lifecycle Hook)
-Klik 2x file **`enable_auto_notify.bat`** (atau jalankan `python "D:\ai-bot\setup_hooks.py"`).
-Script ini akan mendaftarkan `Stop` hook ke:
-- `~/.gemini/config/hooks.json` (untuk **Google Antigravity**)
-- `~/.claude/settings.json` (untuk **Claude Code**)
-
-Setiap kali prompt selesai dikerjakan di IDE/CLI, Anda akan langsung mendapat pesan Telegram berisi nama workspace, prompt terakhir, dan ringkasan jawaban AI!
-
-*(Untuk mematikan hook otomatis kapan saja, jalankan: `python "D:\ai-bot\setup_hooks.py" --disable`)*
-
-### B. Untuk Cursor, Windsurf, VS Code Copilot (Via MCP Server)
-Konfigurasi MCP Server di Cursor / Windsurf (`~/.cursor/mcp.json` / `~/.codeium/windsurf/mcp_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "telegram-notifier": {
-      "command": "python",
-      "args": ["D:\\ai-bot\\mcp_server.py"]
-    }
-  }
-}
-```
-Dengan MCP ini, AI Agent mana pun memiliki tool `send_telegram_notification` untuk mengabari Anda di HP begitu selesai mengerjakan tugas.
-
-### C. Untuk Terminal / Script Custom Apa Saja (CLI Wrapper)
-Gunakan `notify.py` untuk membungkus perintah apa pun agar mengirim notifikasi saat selesai:
-```powershell
-python "D:\ai-bot\notify.py" --agent "Build/Test" --run npm run build
-```
-Atau kirim pesan langsung:
-```powershell
-python "D:\ai-bot\notify.py" --agent "CustomAgent" -m "Proses training selesai!"
-```
+## 🌟 Fitur Utama
+- 📱 **Interactive Prompt Launchpad:** Kirim prompt dari HP, pilih AI Agent (OpenCode / Antigravity), ganti Model, pilih Folder Project, atau ganti mode keamanan sebelum dijalankan.
+- 🗂️ **GUI File Explorer (`/files` atau `/dir`):** Buka struktur folder, unduh file kodingan, atau lihat foto langsung dari chat Telegram seperti aplikasi File Manager.
+- 🧠 **Live Thinking & Action Stream:** Menampilkan animasi progres dan proses penalaran AI (*thinking process*) secara real-time via kartu lipat interaktif (`<blockquote expandable>`).
+- 📸 **High-DPI Screen Capture (`/ss`):** Ambil tangkapan layar laptop secara jernih langsung ke Telegram.
+- 💻 **Laptop Health Monitor (`/sys`):** Cek persentase baterai laptop, status charger AC, beban CPU, RAM, uptime bot, dan sisa ruang harddisk C/D.
+- 🛡️ **4 Lapis Sabuk Pengaman:**
+  1. *Mode AMAN (Plan/Read-Only)* vs *Mode EDIT (Build/Write)*.
+  2. *Folder Whitelist/Blacklist*: Memblokir folder sistem (`C:\Windows`, `C:\Program Files`, root drive `C:\`, `D:\`) dan folder pribadi (`C:\Users\<user>`, `Desktop`, `Documents`, `Downloads`).
+  3. *Dangerous Command Gate*: Konfirmasi eksplisit saat prompt mengandung kata destruktif (`hapus`, `rm`, `delete`, `drop`, `truncate`, `reset`).
+  4. *1-Tap Undo*: Tombol instan membatalkan perubahan file kodingan via Git Restore.
+- ☕ **Anti-Sleep Wake-Lock:** Laptop tetap bekerja memproses kodingan tanpa mati ke mode sleep di tengah proses.
+- 🚀 **Windows Auto-Start:** Otomatis berjalan di background (*silent*, tanpa jendela CMD) setiap kali Windows dinyalakan.
 
 ---
 
-## 📱 Fitur & Menu Dashboard dari HP (Telegram)
+## 📖 PANDUAN LENGKAP INSTALASI DI LAPTOP BARU (DARI AWAL)
 
-Saat bot berjalan di laptop:
-- **Ketik pesan biasa / kirim foto**: Membuka **Interactive Prompt Launchpad** untuk memilih Agent (OpenCode, Antigravity, dll.), ganti model, ganti project, atau switch mode sebelum dieksekusi.
-- **`/files` atau `/dir`**: Membuka **GUI File Explorer** untuk melihat isi folder kerja, download file kodingan, atau melihat foto langsung di Telegram.
-- **`/models`**: Membuka menu interaktif untuk mengganti Model AI secara live.
-- **`/projects`**: Menampilkan daftar shortcut folder project hasil auto-scan (`D:\free_project`, `laragon\www`, dll.).
-- **`/ss`**: Mengambil tangkapan layar laptop secara jernih (High-DPI).
-- **`/sys`**: Membuka dashboard kesehatan laptop (Baterai, RAM, CPU, Uptime, Sisa Harddisk).
-- **`/mode`**: Mengganti mode keamanan `🟢 AMAN (Plan / Read-Only)` vs `🔴 EDIT (Build / Write)`.
-- **`/tasks` & `/kill <id>`**: Memantau dan menghentikan AI Agent yang sedang bekerja di laptop.
-- **`/new`**: Memulai sesi percakapan baru.
-- **`/cmd <perintah>`**: Menjalankan perintah terminal cepat dari HP.
+Gunakan panduan langkah demi langkah ini jika Anda ingin menginstal atau memindahkan project ini ke laptop lain via **Flashdisk** atau **Git Clone**.
+
+---
+
+### TAHAP 1: Persiapan di Laptop Baru
+
+1. **Install Python 3 (Wajib Python 3.10 ke atas):**
+   - Download installer Python dari situs resmi: [https://www.python.org/downloads/](https://www.python.org/downloads/)
+   - ⚠️ **SANGAT PENTING:** Saat jendela instalasi terbuka, **centang kotak "Add python.exe to PATH"** di bagian paling bawah sebelum mengklik *Install Now*.
+   - Verifikasi lewat terminal CMD/PowerShell:
+     ```powershell
+     python --version
+     ```
+2. **Siapkan AI Agent yang Anda gunakan di laptop baru:**
+   - Misalnya **OpenCode CLI**: Pastikan command `opencode` sudah dapat dijalankan di terminal.
+   - Atau **Google Antigravity (`agy`)**: Pastikan command `agy` sudah aktif di terminal.
+
+---
+
+### TAHAP 2: Salin File Project ke Laptop Baru
+
+Pilih salah satu metode berikut:
+
+#### Pilihan A: Lewat Flashdisk (USB Drive)
+1. Salin seluruh isi folder `ai-bot` dari laptop lama ke flashdisk.
+2. Di laptop baru, colokkan flashdisk lalu salin (paste) folder tersebut ke drive tujuan, misalnya di:
+   `D:\ai-bot` (atau `C:\ai-bot`).
+
+#### Pilihan B: Lewat Git Clone (GitHub)
+1. Buka PowerShell di laptop baru, lalu jalankan:
+   ```powershell
+   git clone https://github.com/<USERNAME-ANDA>/<NAMA-REPO-ANDA>.git "D:\ai-bot"
+   cd "D:\ai-bot"
+   ```
+
+---
+
+### TAHAP 3: Membuat Bot Telegram & Mendapatkan Token API
+
+Jika Anda ingin membuat bot Telegram baru (atau belum memiliki bot sama sekali):
+
+1. Buka aplikasi **Telegram** di HP atau desktop Anda.
+2. Di kolom pencarian (search), ketik dan buka akun resmi **`@BotFather`** (pastikan yang memiliki centang biru resmi).
+3. Klik tombol **Start** atau ketik pesan:
+   ```text
+   /newbot
+   ```
+4. `@BotFather` akan meminta **Nama Tampilan** untuk bot Anda. Ketik nama bebas, contoh:
+   ```text
+   Willy AI Laptop Hub
+   ```
+5. `@BotFather` akan meminta **Username** untuk bot Anda.
+   - Username harus unik (belum pernah dipakai orang lain) dan **wajib diakhiri dengan kata `bot`**.
+   - Contoh: `willy_laptop_ai_bot` atau `my_coding_assistant_bot`.
+6. Jika berhasil, `@BotFather` akan mengirimkan pesan berisi selamat dan **HTTP API Token** berupa deretan angka & huruf panjang, contohnya:
+   ```text
+   1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ123456
+   ```
+7. **Salin (Copy)** token tersebut. Simpan baik-baik dan jangan dibagikan ke orang lain.
+
+---
+
+### TAHAP 4: Menjalankan Installer Otomatis (1x Klik)
+
+1. Buka File Explorer di laptop baru, lalu masuk ke folder project: **`D:\ai-bot`**.
+2. Klik 2x (double-click) file:
+   👉 **`setup_new_pc.bat`**
+3. Jendela terminal hitam akan terbuka dan menjalankan setup:
+   - Membuat file `.env` otomatis.
+   - Memasang hook notifikasi untuk Google Antigravity, Claude Code, Cursor, Windsurf, dan OpenCode.
+   - Mendaftarkan bot ke **Windows Startup** laptop baru (agar otomatis aktif setiap kali laptop dinyalakan).
+4. Terminal akan meminta Anda memasukkan token:
+   ```text
+   👉 Paste Bot Token Anda di sini lalu tekan Enter:
+   ```
+   **Paste** token yang Anda dapatkan dari `@BotFather` tadi, lalu tekan **Enter**.
+5. Terminal akan menampilkan tulisan:
+   ```text
+   🤖 Bot Telegram Aktif: @nama_bot_anda
+   ```
+6. **Auto-Pairing Chat ID (Hubungkan ke HP Anda):**
+   - Buka aplikasi Telegram di HP Anda.
+   - Buka bot baru yang tadi Anda buat, lalu tekan tombol **START** (atau kirim pesan `/start`).
+   - Bot akan membalas:
+     > *🎉 Berhasil Terhubung! Chat ID Anda otomatis disimpan ke .env.*
+   - Akun Telegram Anda sekarang sudah terkunci sebagai pemilik bot, dan bot tidak akan merespons chat dari orang lain.
+7. Anda dapat menutup jendela CMD tersebut. Instalasi selesai 100%!
+
+---
+
+### TAHAP 5: Menjalankan Bot Sehari-hari
+
+- **Setelah Restart Laptop:**
+  Anda **tidak perlu melakukan apa pun**. Bot otomatis berjalan di background secara senyap (*silent*, tanpa jendela CMD) setiap kali Windows dinyalakan.
+- **Jika Ingin Menyalakan Manual Tanpa Restart:**
+  Cukup klik 2x file **`start_silent_background.vbs`** di folder `D:\ai-bot`.
+- **Jika Ingin Memantau Log Aktivitas di Laptop:**
+  Klik 2x file **`monitor_laptop.bat`** untuk melihat lalu-lintas prompt dan jawaban secara live di layar laptop.
+
+---
+
+## 📱 DAFTAR PERINTAH LENGKAP DARI HP (TELEGRAM)
+
+| Perintah | Fungsi |
+| :--- | :--- |
+| **Kirim pesan biasa** | Membuka *Interactive Prompt Launchpad* untuk konfirmasi eksekusi prompt |
+| **Kirim foto/gambar** | Menganalisis tangkapan layar / foto bug kodingan yang dikirim |
+| **`/files`** atau **`/dir`** | Membuka *GUI File Explorer* interaktif untuk jelajah file & download kode |
+| **`/models`** | Memilih dan mengganti Model AI yang aktif secara live |
+| **`/projects`** | Memilih & berpindah folder project kodingan di laptop (Auto-Scan) |
+| **`/ss`** | Mengambil tangkapan layar laptop saat ini (*High-DPI screenshot*) |
+| **`/sys`** | Membuka dashboard baterai, CPU, RAM, uptime, dan sisa harddisk laptop |
+| **`/mode`** | Ganti mode keamanan: `🟢 AMAN (Plan / Read-Only)` vs `🔴 EDIT (Build / Write)` |
+| **`/tasks`** | Melihat daftar AI Agent yang sedang berjalan di laptop |
+| **`/kill <id>`** | Menghentikan proses AI Agent yang sedang berjalan |
+| **`/new`** | Memulai sesi percakapan/topik baru yang segar |
+| **`/cmd <perintah>`** | Menjalankan perintah terminal cepat dari HP (misal: `/cmd git status`) |
+| **`/help`** | Membuka Menu Dashboard Utama & panduan navigasi cepat |
+
+---
+
+## 🔒 KEAMANAN & PRIVASI (PUSH KE GITHUB)
+File rahasia Anda seperti `.env` (berisi Token Bot & Chat ID pribadi), riwayat log `activity.log`, tangkapan layar `screenshot_*.png`, dan file upload sudah otomatis terdaftar di [`.gitignore`](file:///D:/ai-bot/.gitignore). Anda aman melakukan `git push` ke GitHub publik maupun privat tanpa risiko kebocoran data.
