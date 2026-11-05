@@ -2448,7 +2448,7 @@ class TelegramBridgeBot:
         if not self.allowed_chat_id:
             self.allowed_chat_id = chat_id
             save_env_key("TELEGRAM_CHAT_ID", chat_id)
-            print(f"✅ Auto-Paired! Chat ID Anda ({chat_id}) telah disimpan ke D:\\AI BOT\\.env")
+            print(f"✅ Auto-Paired! Chat ID Anda ({chat_id}) telah disimpan ke D:\\ai-bot\\.env")
             self.send_message(
                 chat_id,
                 f"🎉 <b>Berhasil Terhubung!</b>\nChat ID Anda (<code>{chat_id}</code>) otomatis disimpan ke .env.",

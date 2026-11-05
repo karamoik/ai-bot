@@ -1,4 +1,4 @@
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.CurrentDirectory = "D:\AI BOT"
-WshShell.Run "python ""D:\AI BOT\bot.py""", 0, False
+WshShell.CurrentDirectory = "D:\ai-bot"
+WshShell.Run "python ""D:\ai-bot\bot.py""", 0, False
 Set WshShell = Nothing

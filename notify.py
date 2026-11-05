@@ -4,11 +4,11 @@ Universal AI Agent Notifier for Telegram (Zero External Dependencies).
 
 Mendukung 3 mode penggunaan:
 1. Lifecycle Hook Mode (Otomatis untuk Google Antigravity & Claude Code):
-   python "D:\AI BOT\notify.py" --hook --agent "Antigravity"
+   python "D:\ai-bot\notify.py" --hook --agent "Antigravity"
 2. Direct Message Mode (Dari CLI / Script / Custom Agent):
-   python "D:\AI BOT\notify.py" --agent "Cursor" --message "Refactor selesai!"
+   python "D:\ai-bot\notify.py" --agent "Cursor" --message "Refactor selesai!"
 3. Command Wrapper Mode (Membungkus perintah CLI apapun):
-   python "D:\AI BOT\notify.py" --run agy -p "Buat unit test"
+   python "D:\ai-bot\notify.py" --run agy -p "Buat unit test"
 """
 
 import argparse
@@ -214,7 +214,7 @@ def main() -> None:
         if ok:
             print("✅ Notifikasi berhasil dikirim ke Telegram.")
         else:
-            print("⚠️ Gagal mengirim notifikasi. Pastikan TELEGRAM_BOT_TOKEN dan TELEGRAM_CHAT_ID di D:\\AI BOT\\.env sudah terisi.", file=sys.stderr)
+            print("⚠️ Gagal mengirim notifikasi. Pastikan TELEGRAM_BOT_TOKEN dan TELEGRAM_CHAT_ID di D:\\ai-bot\\.env sudah terisi.", file=sys.stderr)
         return
 
     parser.print_help()
