@@ -1458,19 +1458,17 @@ class TelegramBridgeBot:
             return
 
         cmd_list = [resolved_bin]
-        extra_flags_inserted = False
+        if mode_flags:
+            cmd_list.extend(mode_flags)
+        if self.continue_session and continue_flag:
+            cmd_list.append(continue_flag)
+        if self.active_model and model_flag and is_model_compatible_with_agent(self.active_model, agent_key):
+            cmd_list.extend([model_flag, self.active_model])
+        if attached_file and file_flag:
+            cmd_list.extend([file_flag, attached_file])
+
         for part in cmd_template[1:]:
             if "{prompt}" in part:
-                if not extra_flags_inserted:
-                    if mode_flags:
-                        cmd_list.extend(mode_flags)
-                    if self.continue_session and continue_flag:
-                        cmd_list.append(continue_flag)
-                    if self.active_model and model_flag and is_model_compatible_with_agent(self.active_model, agent_key):
-                        cmd_list.extend([model_flag, self.active_model])
-                    if attached_file and file_flag:
-                        cmd_list.extend([file_flag, attached_file])
-                    extra_flags_inserted = True
                 cmd_list.append(part.replace("{prompt}", effective_prompt))
             else:
                 cmd_list.append(part)
