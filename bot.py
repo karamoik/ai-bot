@@ -193,25 +193,103 @@ def start_windows_anti_sleep() -> None:
 
 
 def capture_laptop_screenshot(output_path: Path) -> bool:
+    target_path = str(output_path).replace("'", "''")
     ps_script = f"""
-Add-Type @"
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Drawing
+$csharp = @"
 using System;
+using System.Drawing;
+using System.Threading;
 using System.Runtime.InteropServices;
-public class DpiHelper {{
+
+public class ScreenGrabber {{
     [DllImport("user32.dll")]
     public static extern bool SetProcessDPIAware();
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr OpenDesktop(string lpszDesktop, uint dwFlags, bool fInherit, uint dwDesiredAccess);
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetThreadDesktop(IntPtr hDesktop);
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool CloseDesktop(IntPtr hDesktop);
+    [DllImport("user32.dll")]
+    public static extern int GetSystemMetrics(int nIndex);
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetDC(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateCompatibleBitmap(IntPtr hdc, int nWidth, int nHeight);
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
+    [DllImport("gdi32.dll")]
+    public static extern bool BitBlt(IntPtr hdcDest, int nXDest, int nYDest, int nWidth, int nHeight, IntPtr hdcSrc, int nXSrc, int nYSrc, int dwRop);
+    [DllImport("gdi32.dll")]
+    public static extern bool DeleteDC(IntPtr hdc);
+    [DllImport("gdi32.dll")]
+    public static extern bool DeleteObject(IntPtr hObject);
+
+    public static bool Capture(string outPath) {{
+        bool ok = false;
+        Thread t = new Thread(() => {{
+            try {{
+                SetProcessDPIAware();
+            }} catch {{}}
+
+            IntPtr hDesk = OpenDesktop("Default", 0, false, 0x01FF);
+            if (hDesk == IntPtr.Zero) {{
+                hDesk = OpenDesktop("default", 0, false, 0x01FF);
+            }}
+            if (hDesk != IntPtr.Zero) {{
+                SetThreadDesktop(hDesk);
+            }}
+
+            int w = GetSystemMetrics(0); // SM_CXSCREEN
+            int h = GetSystemMetrics(1); // SM_CYSCREEN
+            if (w <= 0 || h <= 0) return;
+
+            IntPtr hdcScreen = GetDC(IntPtr.Zero);
+            if (hdcScreen == IntPtr.Zero) return;
+            IntPtr hdcMem = CreateCompatibleDC(hdcScreen);
+            IntPtr hBmp = CreateCompatibleBitmap(hdcScreen, w, h);
+            IntPtr hOld = SelectObject(hdcMem, hBmp);
+
+            // 0x00CC0020 (SRCCOPY) | 0x40000000 (CAPTUREBLT)
+            bool bltOk = BitBlt(hdcMem, 0, 0, w, h, hdcScreen, 0, 0, 0x40CC0020);
+            if (bltOk) {{
+                using (Bitmap bmp = Image.FromHbitmap(hBmp)) {{
+                    bmp.Save(outPath, System.Drawing.Imaging.ImageFormat.Png);
+                    ok = true;
+                }}
+            }}
+
+            SelectObject(hdcMem, hOld);
+            DeleteObject(hBmp);
+            DeleteDC(hdcMem);
+            ReleaseDC(IntPtr.Zero, hdcScreen);
+            if (hDesk != IntPtr.Zero) {{
+                CloseDesktop(hDesk);
+            }}
+        }});
+
+        t.SetApartmentState(ApartmentState.STA);
+        t.Start();
+        t.Join(8000);
+        return ok;
+    }}
 }}
 "@
-[DpiHelper]::SetProcessDPIAware() | Out-Null
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-$bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-$bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
-$graphics = [System.Drawing.Graphics]::FromImage($bmp)
-$graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-$bmp.Save('{str(output_path).replace("'", "''")}', [System.Drawing.Imaging.ImageFormat]::Png)
-$graphics.Dispose()
-$bmp.Dispose()
+try {{
+    Add-Type -TypeDefinition $csharp -ReferencedAssemblies System.Drawing
+    $ok = [ScreenGrabber]::Capture('{target_path}')
+    if (-not $ok -or -not (Test-Path '{target_path}')) {{
+        exit 1
+    }}
+}} catch {{
+    exit 1
+}}
 """
     try:
         res = subprocess.run(
@@ -219,9 +297,9 @@ $bmp.Dispose()
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=15,
+            timeout=20,
         )
-        return res.returncode == 0 and output_path.exists()
+        return res.returncode == 0 and output_path.exists() and output_path.stat().st_size > 20000
     except Exception:
         return False
 
@@ -1714,7 +1792,11 @@ class TelegramBridgeBot:
                     caption=f"📸 Tangkapan Layar Laptop ({ts_str})\n📂 Workspace: {self.active_workspace}",
                 )
             else:
-                self.send_message(chat_id, "⚠️ Gagal mengambil screenshot layar laptop.")
+                self.send_message(
+                    chat_id,
+                    "⚠️ <b>Gagal mengambil screenshot layar laptop.</b>\n"
+                    "Layar kemungkinan sedang terkunci (Lock Screen / Win+L) atau monitor dalam keadaan mati.",
+                )
         finally:
             ss_path.unlink(missing_ok=True)
 
