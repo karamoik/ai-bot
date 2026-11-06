@@ -1,8 +1,8 @@
 {
-  "default_agent": "agy",
-  "default_model": "opencode/big-pickle",
+  "default_agent": "opencode",
+  "default_model": "opencode/deepseek-v4.1-flash-free",
   "default_workspace": "D:\\free_project",
-  "safe_mode": false,
+  "safe_mode": true,
   "project_roots": [
     "D:\\free_project",
     "D:\\free_project\\laragon\\www"

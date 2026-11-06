@@ -323,7 +323,7 @@ def load_config() -> dict:
             print(f"⚠️ Gagal membaca config.json: {exc}")
     return {
         "default_agent": "opencode",
-        "default_model": "opencode/big-pickle",
+        "default_model": "opencode/deepseek-v4.1-flash-free",
         "default_workspace": "D:\\free_project",
         "safe_mode": True,
         "project_roots": ["D:\\free_project", "D:\\free_project\\laragon\\www"],
@@ -428,11 +428,11 @@ def fetch_available_models(agent_key: str = "opencode") -> list:
         return agy_default
 
     default_list = [
-        "opencode/big-pickle",
         "opencode/deepseek-v4.1-flash-free",
         "opencode/glm-5.3-flash-free",
         "opencode/mimo-v2.6-flash-free",
         "opencode/nemotron-3.5-lightning-free",
+        "opencode/big-pickle",
         "opencode/nemotron-3.5-super-vl-free",
         "opencode/beam-free",
         "opencode/crouton-alpha-free",
@@ -1457,21 +1457,37 @@ class TelegramBridgeBot:
             self.send_message(chat_id, f"❌ Executable untuk <code>{e(agent_key)}</code> tidak ditemukan di PATH.")
             return
 
-        cmd_list = [resolved_bin]
+        extra_flags = []
         if mode_flags:
-            cmd_list.extend(mode_flags)
+            extra_flags.extend(mode_flags)
         if self.continue_session and continue_flag:
-            cmd_list.append(continue_flag)
+            extra_flags.append(continue_flag)
         if self.active_model and model_flag and is_model_compatible_with_agent(self.active_model, agent_key):
-            cmd_list.extend([model_flag, self.active_model])
+            extra_flags.extend([model_flag, self.active_model])
         if attached_file and file_flag:
-            cmd_list.extend([file_flag, attached_file])
+            extra_flags.extend([file_flag, attached_file])
 
+        template_tail = []
         for part in cmd_template[1:]:
             if "{prompt}" in part:
-                cmd_list.append(part.replace("{prompt}", effective_prompt))
+                template_tail.append(part.replace("{prompt}", effective_prompt))
             else:
-                cmd_list.append(part)
+                template_tail.append(part)
+
+        # Cari posisi penyisipan extra_flags yang sesuai sintaks CLI:
+        # - Jika ada flag prompt (-p, --message, -q, dll) tepat sebelum prompt, taruh extra_flags SEBELUM flag tsb.
+        # - Jika prompt adalah positional argument (misal: "opencode run ... [prompt]"), taruh extra_flags sebelum prompt.
+        prompt_flags_set = {"-p", "--prompt", "--print", "-q", "--message"}
+        insert_idx = len(template_tail)
+        for i, token in enumerate(template_tail):
+            if token == effective_prompt:
+                if i > 0 and template_tail[i - 1] in prompt_flags_set:
+                    insert_idx = i - 1
+                else:
+                    insert_idx = i
+                break
+
+        cmd_list = [resolved_bin] + template_tail[:insert_idx] + extra_flags + template_tail[insert_idx:]
 
         self.continue_session = True
         use_shell = os.name == "nt" and resolved_bin.lower().endswith((".cmd", ".bat", ".ps1"))
