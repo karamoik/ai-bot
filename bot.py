@@ -304,6 +304,31 @@ try {{
         return False
 
 
+def get_windows_drives_info() -> list:
+    drives = []
+    for l in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        root = f"{l}:\\"
+        if os.path.exists(root):
+            try:
+                u = shutil.disk_usage(root)
+                drives.append({
+                    "letter": l,
+                    "root": root,
+                    "total_gb": round(u.total / (1024**3), 1),
+                    "free_gb": round(u.free / (1024**3), 1),
+                    "used_gb": round(u.used / (1024**3), 1),
+                })
+            except Exception:
+                drives.append({
+                    "letter": l,
+                    "root": root,
+                    "total_gb": 0,
+                    "free_gb": 0,
+                    "used_gb": 0,
+                })
+    return drives
+
+
 def is_protected_folder(folder_path: str) -> tuple:
     norm = os.path.normcase(os.path.abspath(folder_path)).rstrip("\\/")
     user_home = os.path.normcase(str(Path.home())).rstrip("\\/")
@@ -724,6 +749,7 @@ class TelegramBridgeBot:
 
         self.cached_models = fetch_available_models(self.active_agent)
         self.explorer_entries = []
+        self.explorer_current_path = "this_pc"
         self.tasks_lock = threading.Lock()
         self.task_counter = 0
         self.running_tasks = {}
@@ -891,7 +917,7 @@ class TelegramBridgeBot:
                     {"text": toggle_txt, "callback_data": "cb:toggle_mode"},
                 ],
                 [
-                    {"text": "🗂️ File Explorer (GUI)", "callback_data": "cb:files:0"},
+                    {"text": "🗂️ File Explorer (GUI)", "callback_data": "fexp_this_pc"},
                     {"text": "📂 Pindah Project", "callback_data": "cb:menu_projects"},
                 ],
                 [
@@ -911,24 +937,98 @@ class TelegramBridgeBot:
             ]
         }
 
-    def build_file_explorer_ui(self, page: int = 0) -> tuple:
+    def build_file_explorer_ui(self, target_path: str = None, page: int = 0) -> tuple:
         """
-        Membangun UI File Explorer Interaktif (seperti VS Code Explorer / File Manager)
-        untuk melihat isi folder aktif, klik subfolder untuk masuk, atau klik file untuk baca/download!
+        Membangun UI File Explorer Interaktif seperti Windows Explorer (This PC).
+        Fungsi ini murni untuk cek/lihat/unduh file dan folder (Read-Only),
+        tanpa mengubah active_workspace.
         """
-        cwd = Path(self.active_workspace)
+        if target_path is not None:
+            self.explorer_current_path = target_path
+
+        current_path = getattr(self, "explorer_current_path", "this_pc")
+
+        # 1. Halaman Utama: THIS PC (Daftar Drive C: dan D:)
+        if current_path == "this_pc":
+            drives = get_windows_drives_info()
+            drives_text_lines = []
+            drive_btns = []
+            for d in drives:
+                drives_text_lines.append(
+                    f"💾 <b>Local Disk ({d['letter']}:)</b>\n"
+                    f"   ├─ 🟢 Bebas : <code>{d['free_gb']} GB</code> dari <code>{d['total_gb']} GB</code>\n"
+                    f"   └─ 📦 Terpakai: <code>{d['used_gb']} GB</code>"
+                )
+                drive_btns.append({"text": f"💾 Buka Disk {d['letter']}:\\", "callback_data": f"fexp_drive:{d['letter']}"})
+
+            drives_str = "\n\n".join(drives_text_lines) if drives_text_lines else "Tidak ada drive terdeteksi."
+            text = (
+                "╭─── 💻 <b>WINDOWS FILE EXPLORER (THIS PC)</b> ───╮\n"
+                "│ 🔍 <b>Fungsi:</b> <code>Cek File & Folder (Hanya Baca / Aman)</code>\n"
+                "╰────────────────────────────────────────────────╯\n\n"
+                f"{drives_str}\n\n"
+                "👇 <i>Tap salah satu Disk di bawah untuk melihat semua folder di dalamnya:</i>"
+            )
+
+            kb_rows = []
+            row = []
+            for btn in drive_btns:
+                row.append(btn)
+                if len(row) == 2:
+                    kb_rows.append(row)
+                    row = []
+            if row:
+                kb_rows.append(row)
+
+            kb_rows.append([
+                {"text": "📂 Buka Folder Workspace Saat Ini", "callback_data": "fexp_ws"}
+            ])
+            kb_rows.append([
+                {"text": "🔄 Refresh", "callback_data": "fexp_this_pc"},
+                {"text": "🏠 Menu Utama", "callback_data": "cb:home"}
+            ])
+            self.explorer_entries = []
+            return text, {"inline_keyboard": kb_rows}
+
+        # 2. Halaman Isi Folder / Drive (misal C:\, D:\, atau subfoldernya)
+        try:
+            cwd = Path(self.explorer_current_path).resolve()
+        except Exception:
+            cwd = Path("D:\\")
+            self.explorer_current_path = "D:\\"
+
         dirs = []
         files = []
+        read_error = ""
+
+        SKIP_NAMES = {
+            "$recycle.bin",
+            "system volume information",
+            "recovery",
+            "config.msi",
+            "documents and settings",
+            "onedrivetemp",
+            "hiberfil.sys",
+            "pagefile.sys",
+            "swapfile.sys",
+            "dumpstack.log.tmp",
+        }
+
         try:
             for item in sorted(cwd.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+                name_low = item.name.lower()
+                if name_low in SKIP_NAMES or name_low.startswith("$"):
+                    continue
                 if item.name.startswith(".") and item.name not in (".env", ".gitignore"):
                     continue
                 if item.is_dir():
                     dirs.append(item)
                 else:
                     files.append(item)
+        except PermissionError:
+            read_error = "⛔ <i>Akses folder dibatasi oleh Windows (Memerlukan izin Admin).</i>"
         except Exception as exc:
-            return f"⚠️ Gagal membaca direktori: <code>{e(exc)}</code>", self.default_action_buttons()
+            read_error = f"⚠️ <i>Gagal membaca direktori: <code>{e(exc)}</code></i>"
 
         all_items = dirs + files
         self.explorer_entries = [str(x) for x in all_items]
@@ -957,15 +1057,19 @@ class TelegramBridgeBot:
                 icon = "🖼️" if it.suffix.lower() in IMAGE_EXTENSIONS else "📄"
                 table_lines.append(f"{icon} {it.name:<26} {sz_str:>8}")
 
-        listing_str = "\n".join(table_lines) if table_lines else "(Folder kosong)"
+        if read_error:
+            listing_str = read_error
+        else:
+            listing_str = "\n".join(table_lines) if table_lines else "(Folder kosong)"
 
+        loc_display = str(cwd)
         text = (
-            "╭─── 🗂️ <b>INTERACTIVE FILE EXPLORER</b> ───╮\n"
-            f"│ 📍 <b>Lokasi:</b> <code>{e(str(cwd))}</code>\n"
+            "╭─── 🗂️ <b>WINDOWS FILE EXPLORER</b> ───╮\n"
+            f"│ 📍 <b>Lokasi:</b> <code>{e(loc_display)}</code>\n"
             f"│ 📊 <b>Total :</b> <code>{len(dirs)} Folder, {len(files)} File</code> (Hal {page + 1}/{max_page + 1})\n"
             "╰────────────────────────────────────╯\n"
-            f"<pre><code>{e(listing_str)}</code></pre>\n"
-            "👇 <i>Tap Folder (📁) untuk masuk, atau File (📄/🖼️) untuk melihat/mengunduh isinya:</i>"
+            f"<pre><code>{e(listing_str) if not read_error else listing_str}</code></pre>\n"
+            "👇 <i>Tap Folder (📁) untuk masuk, atau File (📄/🖼️) untuk melihat/mengunduh:</i>"
         )
 
         kb_rows = []
@@ -986,22 +1090,39 @@ class TelegramBridgeBot:
         if row:
             kb_rows.append(row)
 
-        nav_row = []
-        if page > 0:
-            nav_row.append({"text": "⬅️ Prev", "callback_data": f"cb:files:{page - 1}"})
-        parent_dir = str(cwd.parent)
-        blocked_parent, _ = is_protected_folder(parent_dir)
-        if cwd.parent != cwd and not blocked_parent:
-            nav_row.append({"text": "⬆️ Naik 1 Folder (..)", "callback_data": "fexp_up"})
-        if page < max_page:
-            nav_row.append({"text": "Next ➡️", "callback_data": f"cb:files:{page + 1}"})
-        if nav_row:
-            kb_rows.append(nav_row)
+        # Navigasi Atas: This PC & Naik 1 Folder
+        is_root_drive = (cwd.parent == cwd)
+        nav_top = [
+            {"text": "💻 This PC (Drives)", "callback_data": "fexp_this_pc"},
+        ]
+        if not is_root_drive:
+            nav_top.append({"text": "⬆️ Naik 1 Folder (..)", "callback_data": "fexp_up"})
+        else:
+            nav_top.append({"text": "⬆️ Ke This PC (..)", "callback_data": "fexp_this_pc"})
+        kb_rows.append(nav_top)
 
+        # Shortcut Cepat Pindah Antar-Drive (C:\ dan D:\)
+        drive_switches = []
+        for ltr in ("C", "D"):
+            if os.path.exists(f"{ltr}:\\"):
+                curr_mark = "📍 " if str(cwd).upper().startswith(f"{ltr}:") else "💾 "
+                drive_switches.append({"text": f"{curr_mark}Disk {ltr}:\\", "callback_data": f"fexp_drive:{ltr}"})
+        if drive_switches:
+            kb_rows.append(drive_switches)
+
+        # Paginasi
+        page_row = []
+        if page > 0:
+            page_row.append({"text": "⬅️ Prev", "callback_data": f"cb:files:{page - 1}"})
+        if page < max_page:
+            page_row.append({"text": "Next ➡️", "callback_data": f"cb:files:{page + 1}"})
+        if page_row:
+            kb_rows.append(page_row)
+
+        # Menu Bawah
         kb_rows.append(
             [
                 {"text": "🔄 Refresh", "callback_data": f"cb:files:{page}"},
-                {"text": "📂 Daftar Project", "callback_data": "cb:menu_projects"},
                 {"text": "🏠 Menu Utama", "callback_data": "cb:home"},
             ]
         )
@@ -1813,24 +1934,50 @@ class TelegramBridgeBot:
         self.api_call("answerCallbackQuery", {"callback_query_id": cb_id}, timeout=5)
 
         # --- Handler untuk Interactive File Explorer (fexp_*) ---
+        if data == "fexp_this_pc":
+            self.explorer_current_path = "this_pc"
+            txt, kb = self.build_file_explorer_ui("this_pc", page=0)
+            self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
+            return
+
+        if data.startswith("fexp_drive:"):
+            ltr = data.split(":", 1)[1].upper()
+            target = f"{ltr}:\\"
+            self.explorer_current_path = target
+            txt, kb = self.build_file_explorer_ui(target, page=0)
+            self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
+            return
+
+        if data == "fexp_ws":
+            self.explorer_current_path = self.active_workspace
+            txt, kb = self.build_file_explorer_ui(self.active_workspace, page=0)
+            self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
+            return
+
         if data.startswith("cb:files:"):
             page_s = data.split(":", 2)[2]
-            page = int(page_s) if page_s.isdigit() else 0
-            txt, kb = self.build_file_explorer_ui(page=page)
+            if page_s == "this_pc":
+                self.explorer_current_path = "this_pc"
+                txt, kb = self.build_file_explorer_ui("this_pc", page=0)
+            else:
+                page = int(page_s) if page_s.isdigit() else 0
+                txt, kb = self.build_file_explorer_ui(page=page)
             self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
             return
 
         if data == "fexp_up":
-            parent_dir = str(Path(self.active_workspace).parent)
-            blocked, reason = is_protected_folder(parent_dir)
-            if blocked:
-                self.send_message(chat_id, f"⛔ <b>[Proteksi Keamanan]</b>\n{e(reason)}")
-                return
-            self.active_workspace = parent_dir
-            self.continue_session = False
-            self.config["default_workspace"] = parent_dir
-            save_config(self.config)
-            txt, kb = self.build_file_explorer_ui(page=0)
+            curr_str = getattr(self, "explorer_current_path", "this_pc")
+            if curr_str == "this_pc":
+                txt, kb = self.build_file_explorer_ui("this_pc", page=0)
+            else:
+                curr = Path(curr_str).resolve()
+                if curr.parent == curr:
+                    self.explorer_current_path = "this_pc"
+                    txt, kb = self.build_file_explorer_ui("this_pc", page=0)
+                else:
+                    parent_dir = str(curr.parent)
+                    self.explorer_current_path = parent_dir
+                    txt, kb = self.build_file_explorer_ui(parent_dir, page=0)
             self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
             return
 
@@ -1858,15 +2005,8 @@ class TelegramBridgeBot:
                 if 0 <= idx < len(self.explorer_entries):
                     chosen_path = Path(self.explorer_entries[idx])
                     if chosen_path.is_dir():
-                        blocked, reason = is_protected_folder(str(chosen_path))
-                        if blocked:
-                            self.send_message(chat_id, f"⛔ <b>[Proteksi Keamanan]</b>\n{e(reason)}")
-                            return
-                        self.active_workspace = str(chosen_path)
-                        self.continue_session = False
-                        self.config["default_workspace"] = str(chosen_path)
-                        save_config(self.config)
-                        txt, kb = self.build_file_explorer_ui(page=0)
+                        self.explorer_current_path = str(chosen_path)
+                        txt, kb = self.build_file_explorer_ui(str(chosen_path), page=0)
                         self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
                     elif chosen_path.is_file():
                         suffix_low = chosen_path.suffix.lower()
