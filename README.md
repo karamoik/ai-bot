@@ -8,6 +8,15 @@ Dibangun menggunakan **100% Python Standard Library** tanpa perlu `pip install` 
 
 ## 🌟 Fitur Utama
 - 📱 **Interactive Prompt Launchpad:** Kirim prompt dari HP, pilih AI Agent (OpenCode / Antigravity), ganti Model, pilih Folder Project, atau ganti mode keamanan sebelum dijalankan.
+- 🎙️ **Voice Note to Prompt (Speech-to-Code):** Cukup rekam pesan suara (*Voice Note*) di Telegram saat sedang di jalan, bot otomatis mengubah suara menjadi teks prompt dan membuka *Launchpad Card*.
+- 🔀 **Git Control Center & Visual Diff (`/git`):** Lihat perubahan kode (`git diff`), pindah/buat branch, `git pull`, hingga **1-Tap Quick Commit & Push** langsung dari HP.
+- 🌐 **Live Web Preview Tunnel (`/preview`):** Deteksi otomatis port web lokal yang aktif (`80`, `3000`, `5173`, `8000`, dll.) dan buat link **HTTPS Publik Instan** agar web lokal di laptop bisa dicoba langsung dari browser HP!
+- 📋 **Smart Task Queue (`/queue`):** Jika AI sedang sibuk mengerjakan sebuah task, prompt baru otomatis masuk ke antrean berurutan agar tidak bentrok mengedit file yang sama.
+- ⚡ **Quick Prompt Presets (`/presets`):** Tombol sekali tap untuk perintah standar developer (*Code Review & Bug Hunt*, *Run Tests & Fix Error*, *Refactor & Clean Code*, *Commit Message*, dll.) + bisa tambah preset kustom (`/addpreset`).
+- 🚨 **Proactive Watchdog & Remote Power Control (`/power`):**
+  - *Low Battery Alert:* Notifikasi otomatis ke HP jika baterai laptop `< 20%` dan charger tidak tercolok.
+  - *Stuck Task Detector:* Peringatan otomatis jika proses CLI AI menggantung tanpa output baru.
+  - *Remote Power Control:* Kunci layar (*Lock Screen*), matikan monitor, *Sleep*, atau *Hibernate* laptop dari jarak jauh.
 - 🗂️ **GUI File Explorer (`/files` atau `/dir`):** Buka struktur folder, unduh file kodingan, atau lihat foto langsung dari chat Telegram seperti aplikasi File Manager.
 - 🧠 **Live Thinking & Action Stream:** Menampilkan animasi progres dan proses penalaran AI (*thinking process*) secara real-time via kartu lipat interaktif (`<blockquote expandable>`).
 - 📸 **High-DPI Screen Capture (`/ss`):** Ambil tangkapan layar laptop secara jernih langsung ke Telegram.
@@ -130,7 +139,14 @@ Jika Anda ingin membuat bot Telegram baru (atau belum memiliki bot sama sekali):
 | Perintah | Fungsi |
 | :--- | :--- |
 | **Kirim pesan biasa** | Membuka *Interactive Prompt Launchpad* untuk konfirmasi eksekusi prompt |
+| **Kirim Voice Note 🎙️** | Mengubah pesan suara menjadi teks prompt otomatis (*Speech-to-Code*) |
 | **Kirim foto/gambar** | Menganalisis tangkapan layar / foto bug kodingan yang dikirim |
+| **`/git`** | Membuka **Git Control Center** (Diff, Quick Commit & Push, Pindah Branch, Pull) |
+| **`/preview`** | Membuka **Live Web Preview** (Buat link HTTPS ke web localhost laptop dari HP) |
+| **`/presets`** | Membuka daftar **Quick Prompt Presets** (Review, Test, Refactor, dll.) |
+| **`/addpreset <Judul> \| <Prompt>`** | Menambahkan template prompt kustom baru ke daftar `/presets` |
+| **`/queue`** | Melihat & mengelola **Antrean Prompt Otomatis** (*Smart Task Queue*) |
+| **`/power`** | Membuka **Remote Power Control** (Lock Screen, Matikan Layar, Sleep, Hibernate) |
 | **`/files`** atau **`/dir`** | Membuka *GUI File Explorer* interaktif untuk jelajah file & download kode |
 | **`/models`** | Memilih dan mengganti Model AI yang aktif secara live |
 | **`/projects`** | Memilih & berpindah folder project kodingan di laptop (Auto-Scan) |
