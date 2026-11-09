@@ -335,20 +335,20 @@ def is_protected_folder(folder_path: str) -> tuple:
     user_home = os.path.normcase(str(Path.home())).rstrip("\\/")
 
     if len(norm) <= 3 and norm.endswith(":"):
-        return True, f"Root Drive ({norm}\\) diblokir demi keamanan data."
+        return True, f"Root drive ({norm}\\) is blocked for data safety."
 
     forbidden_exact = {
-        user_home: "Folder utama User (C:\\Users\\willy) diblokir agar Desktop/Documents aman. Silakan pilih folder project koding Anda.",
-        os.path.join(user_home, "desktop"): "Folder Desktop diblokir demi keamanan.",
-        os.path.join(user_home, "documents"): "Folder Documents pribadi diblokir demi keamanan.",
-        os.path.join(user_home, "downloads"): "Folder Downloads diblokir demi keamanan.",
+        user_home: "User home directory (C:\\Users\\willy) is blocked to keep Desktop/Documents safe. Please select a coding project folder.",
+        os.path.join(user_home, "desktop"): "Desktop folder is blocked for safety.",
+        os.path.join(user_home, "documents"): "Personal Documents folder is blocked for safety.",
+        os.path.join(user_home, "downloads"): "Downloads folder is blocked for safety.",
     }
     if norm in forbidden_exact:
         return True, forbidden_exact[norm]
 
     for sys_prefix in ("c:\\windows", "c:\\program files", "c:\\program files (x86)", "c:\\programdata"):
         if norm == sys_prefix or norm.startswith(sys_prefix + "\\"):
-            return True, f"Folder sistem Windows ({folder_path}) diblokir."
+            return True, f"Windows system folder ({folder_path}) is blocked."
 
     return False, ""
 
@@ -645,8 +645,8 @@ def get_git_changes_summary_html(workspace: str) -> str:
         status_lines = res.stdout.strip().splitlines()
         preview = "\n".join(e(line) for line in status_lines[:10])
         if len(status_lines) > 10:
-            preview += f"\n... (+{len(status_lines) - 10} file lainnya)"
-        return f"\n\n📁 <b>File Berubah di Git ({len(status_lines)} file):</b>\n<pre><code>{preview}</code></pre>"
+            preview += f"\n... (+{len(status_lines) - 10} more files)"
+        return f"\n\n📁 <b>Git Modified Files ({len(status_lines)} files):</b>\n<pre><code>{preview}</code></pre>"
     except Exception:
         return ""
 
@@ -660,12 +660,12 @@ def get_system_health_html() -> str:
     uptime_sec = int(time.time() - BOT_START_TIME)
     hours, rem = divmod(uptime_sec, 3600)
     mins, secs = divmod(rem, 60)
-    uptime_str = f"{hours}j {mins}m {secs}d"
+    uptime_str = f"{hours}h {mins}m {secs}s"
 
     rows = [
-        "╭─── 💻 <b>DASHBOARD KESEHATAN LAPTOP</b> ───╮",
-        f"│ ⏱️ <b>Uptime Bot :</b> <code>{uptime_str}</code>",
-        "│ ☕ <b>Wake-Lock  :</b> <code>Aktif (Anti-Sleep)</code>",
+        "╭─── 💻 <b>LAPTOP HEALTH DASHBOARD</b> ───╮",
+        f"│ ⏱️ <b>Bot Uptime :</b> <code>{uptime_str}</code>",
+        "│ ☕ <b>Wake-Lock  :</b> <code>Active (Anti-Sleep)</code>",
     ]
 
     if os.name == "nt":
@@ -694,13 +694,13 @@ def get_system_health_html() -> str:
                     if pct_s.isdigit():
                         pct = int(pct_s)
                         charging = "⚡ AC Charging" if st in ("2", "6", "7", "8", "9") else "🔋 Battery"
-                        rows.append(f"│ 🔋 <b>Baterai    :</b> <code>[{make_bar(pct)}] {pct}%</code> ({charging})")
+                        rows.append(f"│ 🔋 <b>Battery    :</b> <code>[{make_bar(pct)}] {pct}%</code> ({charging})")
                     else:
-                        rows.append("│ 🔌 <b>Daya       :</b> <code>Listrik AC Langsung</code>")
+                        rows.append("│ 🔌 <b>Power      :</b> <code>Direct AC Power</code>")
                 elif row.startswith("CPU:"):
                     cpu_s = row[4:].strip() or "0"
                     cpu_val = int(float(cpu_s)) if cpu_s.replace(".", "").isdigit() else 0
-                    rows.append(f"│ 🧠 <b>Beban CPU  :</b> <code>[{make_bar(cpu_val)}] {cpu_val}%</code>")
+                    rows.append(f"│ 🧠 <b>CPU Load   :</b> <code>[{make_bar(cpu_val)}] {cpu_val}%</code>")
                 elif row.startswith("RAM:"):
                     parts = row[4:].split("|")
                     if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
@@ -708,7 +708,7 @@ def get_system_health_html() -> str:
                         total_gb = round(int(parts[1]) / (1024 * 1024), 1)
                         used_gb = round(total_gb - free_gb, 1)
                         pct_ram = round((used_gb / total_gb) * 100) if total_gb else 0
-                        rows.append(f"│ 💾 <b>RAM Pakai  :</b> <code>[{make_bar(pct_ram)}] {pct_ram}%</code> ({used_gb}/{total_gb} GB)")
+                        rows.append(f"│ 💾 <b>RAM Usage  :</b> <code>[{make_bar(pct_ram)}] {pct_ram}%</code> ({used_gb}/{total_gb} GB)")
         except Exception:
             pass
 
@@ -718,7 +718,7 @@ def get_system_health_html() -> str:
                 usage = shutil.disk_usage(drive)
                 free_gb = round(usage.free / (1024**3), 1)
                 used_pct = round(((usage.total - usage.free) / usage.total) * 100) if usage.total else 0
-                rows.append(f"│ 💿 <b>Disk {drive[:2]}    :</b> <code>[{make_bar(used_pct)}] Sisa {free_gb} GB</code>")
+                rows.append(f"│ 💿 <b>Disk {drive[:2]}    :</b> <code>[{make_bar(used_pct)}] {free_gb} GB Free</code>")
             except Exception:
                 pass
 
@@ -730,32 +730,32 @@ DEFAULT_PROMPT_PRESETS = [
     {
         "id": "review",
         "title": "🔍 Code Review & Bug Hunt",
-        "prompt": "Review perubahan kode terakhir (git diff / status), analisis potensi bug, celah keamanan, atau edge-case yang terlewat, dan berikan rekomendasi perbaikan.",
+        "prompt": "Review the latest code changes (git diff / status), analyze potential bugs, security vulnerabilities, or missed edge cases, and provide fix recommendations.",
     },
     {
         "id": "test",
-        "title": "🧪 Run Tests & Fix Error",
-        "prompt": "Jalankan pengujian (test/syntax check/lint) pada project ini, analisis jika ada yang gagal atau error, lalu perbaiki hingga berjalan normal.",
+        "title": "🧪 Run Tests & Fix Errors",
+        "prompt": "Run tests, syntax checks, or linters on this project, analyze any failures or errors, and fix them until everything passes.",
     },
     {
         "id": "commit_msg",
-        "title": "📝 Ringkasan & Pesan Commit",
-        "prompt": "Periksa semua perubahan di git saat ini dan buatkan ringkasan changelog beserta pesan git commit yang rapi (format Conventional Commits).",
+        "title": "📝 Changelog & Commit Message",
+        "prompt": "Inspect all current git changes and generate a clean changelog summary along with a Conventional Commits message.",
     },
     {
         "id": "clean",
         "title": "🧹 Refactor & Clean Code",
-        "prompt": "Rapikan kode yang baru diubah, bersihkan unused imports atau dead code, dan pastikan struktur kodenya bersih tanpa mengubah logika fungsional.",
+        "prompt": "Clean up recently modified code, remove unused imports or dead code, and ensure a clean structure without changing functional behavior.",
     },
     {
         "id": "arch",
-        "title": "🚀 Jelaskan Arsitektur Project",
-        "prompt": "Analisis struktur folder dan file utama di project ini, lalu jelaskan arsitektur dan alur kerjanya secara ringkas dan mudah dipahami.",
+        "title": "🚀 Explain Project Architecture",
+        "prompt": "Analyze the directory structure and core files of this project, then explain its architecture and workflow clearly and concisely.",
     },
     {
         "id": "debug",
-        "title": "🐛 Debug Error Terakhir",
-        "prompt": "Periksa log atau error terakhir pada project ini, temukan akar masalahnya (root cause), dan terapkan solusinya.",
+        "title": "🐛 Debug Latest Error",
+        "prompt": "Check the latest logs or errors in this project, identify the root cause, and implement the fix.",
     },
 ]
 
@@ -856,7 +856,7 @@ def get_git_dashboard_info(workspace: str) -> dict:
             errors="replace",
             timeout=5,
         )
-        info["last_commit"] = (lg.stdout or "").strip() or "(Belum ada commit)"
+        info["last_commit"] = (lg.stdout or "").strip() or "(No commits yet)"
 
         rm = subprocess.run(
             ["git", "remote", "get-url", "origin"],
@@ -867,7 +867,7 @@ def get_git_dashboard_info(workspace: str) -> dict:
             text=True,
             timeout=5,
         )
-        info["remote"] = (rm.stdout or "").strip() or "(Tidak ada remote origin)"
+        info["remote"] = (rm.stdout or "").strip() or "(No remote origin)"
 
         st = subprocess.run(
             ["git", "status", "--short"],
@@ -1006,6 +1006,9 @@ class TelegramBridgeBot:
             save_config(self.config)
 
         self.active_model = self.config.get("default_model", "opencode/big-pickle")
+        self.agent_models = dict(self.config.get("agent_models") or {})
+        if is_model_compatible_with_agent(self.active_model, self.active_agent):
+            self.agent_models.setdefault(self.active_agent, self.active_model)
         self.safe_mode = bool(self.config.get("safe_mode", True))
         self.continue_session = True
         self.active_workspace = self.config.get("default_workspace", "D:\\free_project")
@@ -1030,6 +1033,25 @@ class TelegramBridgeBot:
         self.pinned_status_msg_id = int(self.config.get("pinned_status_msg_id", 0) or 0)
         self.last_banner_state = ""
         self.last_banner_update_ts = 0.0
+
+    def get_model_for_agent(self, agent_key: str) -> str:
+        saved = self.agent_models.get(agent_key, "")
+        if saved and is_model_compatible_with_agent(saved, agent_key):
+            return saved
+        if is_model_compatible_with_agent(self.active_model, agent_key):
+            return self.active_model
+        avail = fetch_available_models(agent_key)
+        chosen = avail[0] if avail else "default"
+        self.agent_models[agent_key] = chosen
+        return chosen
+
+    def set_model_for_agent(self, agent_key: str, model_id: str) -> None:
+        self.agent_models[agent_key] = model_id
+        self.config["agent_models"] = self.agent_models
+        if agent_key == self.active_agent:
+            self.active_model = model_id
+            self.config["default_model"] = model_id
+        save_config(self.config)
 
     def api_call(self, method: str, payload: dict, timeout: int = 35) -> dict:
         url = f"{self.api_base}/{method}"
@@ -1085,12 +1107,12 @@ class TelegramBridgeBot:
         if not chat_id:
             return 0
         if not text:
-            text = "(Output kosong)"
+            text = "(Empty output)"
         chunk_size = 3800
         chunks = [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
         last_msg_id = 0
         for idx, chunk in enumerate(chunks):
-            prefix = f"<b>[Bagian {idx + 1}/{len(chunks)}]</b>\n" if len(chunks) > 1 else ""
+            prefix = f"<b>[Part {idx + 1}/{len(chunks)}]</b>\n" if len(chunks) > 1 else ""
             payload = {"chat_id": chat_id, "text": prefix + chunk}
             if parse_mode:
                 payload["parse_mode"] = parse_mode
@@ -1177,34 +1199,55 @@ class TelegramBridgeBot:
         finally:
             tmp_path.unlink(missing_ok=True)
 
-    def mode_label(self) -> str:
-        return "🟢 SAFE (Plan / Read-Only)" if self.safe_mode else "🔴 EDIT (Build / Write Enabled)"
+    def mode_label(self, safe_override: bool = None) -> str:
+        use_safe = self.safe_mode if safe_override is None else safe_override
+        return "🟢 SAFE (Plan / Read-Only)" if use_safe else "🔴 EDIT (Build / Write Enabled)"
 
     def update_live_status_banner(self, busy_info: str = "", force: bool = False) -> None:
         """
-        Memperbarui Pinned Status Bar di bagian paling atas chat Telegram secara real-time:
-        - Saat Standby : 🟢 AI-BOT ONLINE & SIAP
-        - Saat Bekerja : 🧠⚡ AI SEDANG BERPIKIR / BEKERJA...
+        Updates the Pinned Status Bar at the very top of the Telegram chat in real time:
+        - Standby : 🟢 AI-BOT ONLINE & STANDBY (READY)
+        - Working : 🧠⚡ [LIVE] AI AGENT IS WORKING (supports 1 or multiple parallel tasks)
         """
         if not self.allowed_chat_id:
             return
         now = time.time()
-        state_key = f"BUSY:{busy_info}" if busy_info else f"IDLE:{self.active_agent}:{self.safe_mode}"
-        # Hindari rate-limit Telegram jika state sama dan baru diupdate < 25 detik lalu
+        with self.tasks_lock:
+            active_tasks = list(self.running_tasks.items())
+
+        if active_tasks and not busy_info:
+            parts = []
+            for tid, tinfo in active_tasks:
+                ws_short = os.path.basename(tinfo["workspace"]) or tinfo["workspace"]
+                parts.append(f"#{tid} {tinfo['agent'].upper()} ({ws_short})")
+            busy_info = " | ".join(parts)
+
+        state_key = f"BUSY:{len(active_tasks)}:{busy_info}" if busy_info else f"IDLE:{self.active_agent}:{self.safe_mode}"
         if not force and state_key == self.last_banner_state and (now - self.last_banner_update_ts) < 25:
             return
 
         ts_str = time.strftime("%H:%M:%S")
         mode_short = "🟢 SAFE" if self.safe_mode else "🔴 EDIT"
-        if busy_info:
+        if len(active_tasks) >= 2:
+            task_badges = []
+            for tid, tinfo in active_tasks:
+                ws_short = os.path.basename(tinfo["workspace"]) or tinfo["workspace"]
+                m_short = (tinfo.get("model") or "auto").split("/")[-1][:14]
+                task_badges.append(f"• <b>Task #{tid}:</b> <code>{e(tinfo['agent'].upper())}</code> [{e(m_short)}] 📂 <code>{e(ws_short)}</code>")
             banner_text = (
-                f"🧠⚡ <b>[LIVE] AI SEDANG THINKING / BEKERJA</b>\n"
-                f"⚙️ <b>Aktivitas :</b> <code>{e(busy_info[:90])}</code>\n"
-                f"📂 <b>Project   :</b> <code>{e(os.path.basename(self.active_workspace) or self.active_workspace)}</code> | 🕒 <code>{ts_str}</code>"
+                f"🧠⚡ <b>[LIVE] {len(active_tasks)} AI AGENTS WORKING IN PARALLEL</b>\n"
+                + "\n".join(task_badges[:4])
+                + f"\n🕒 <b>Updated:</b> <code>{ts_str}</code>"
+            )
+        elif busy_info:
+            banner_text = (
+                f"🧠⚡ <b>[LIVE] AI AGENT IS THINKING / WORKING</b>\n"
+                f"⚙️ <b>Activity :</b> <code>{e(busy_info[:90])}</code>\n"
+                f"📂 <b>Project  :</b> <code>{e(os.path.basename(self.active_workspace) or self.active_workspace)}</code> | 🕒 <code>{ts_str}</code>"
             )
         else:
             banner_text = (
-                f"🟢 <b>AI-BOT ONLINE &amp; STANDBY (SIAP)</b>\n"
+                f"🟢 <b>AI-BOT ONLINE &amp; STANDBY (READY)</b>\n"
                 f"🤖 <b>Agent:</b> <code>{e(self.active_agent.upper())}</code> | 🛡️ <code>{mode_short}</code> | 💓 <code>{ts_str}</code>"
             )
 
@@ -1212,7 +1255,8 @@ class TelegramBridgeBot:
             "inline_keyboard": [
                 [
                     {"text": "🏠 Dashboard (/help)", "callback_data": "cb:home"},
-                    {"text": "💓 Ping Status", "callback_data": "cb:ping"},
+                    {"text": "⏳ Active Tasks", "callback_data": "cb:tasks"},
+                    {"text": "💓 Ping", "callback_data": "cb:ping"},
                 ]
             ]
         }
@@ -1306,7 +1350,7 @@ class TelegramBridgeBot:
             f"│ 📂 <b>Project :</b> <code>{e(self.active_workspace)}</code>",
             f"│ 🤖 <b>Agent   :</b> <code>{e(self.active_agent.upper())}</code>",
             "╰──────────────────────────────────╯",
-            "👇 <i>Tap template prompt di bawah untuk langsung membuka Launchpad tanpa mengetik ulang:</i>\n",
+            "👇 <i>Tap any prompt template below to open the Launchpad without typing:</i>\n",
         ]
         kb_rows = []
         row = []
@@ -1319,7 +1363,7 @@ class TelegramBridgeBot:
                 row = []
         if row:
             kb_rows.append(row)
-        lines.append("\n💡 <i>Tambah preset sendiri:</i> <code>/addpreset Judul | Isi prompt...</code>")
+        lines.append("\n💡 <i>Add custom preset:</i> <code>/addpreset Title | Full prompt text...</code>")
         kb_rows.append([{"text": "🏠 Main Menu", "callback_data": "cb:home"}])
         return "\n".join(lines), {"inline_keyboard": kb_rows}
 
@@ -1330,8 +1374,8 @@ class TelegramBridgeBot:
                 "╭─── 🔀 <b>GIT CONTROL CENTER</b> ───╮\n"
                 f"│ 📂 <b>Folder:</b> <code>{e(self.active_workspace)}</code>\n"
                 "╰────────────────────────────────╯\n\n"
-                "⚠️ Folder ini belum menjadi repositori Git (tidak ada folder <code>.git</code>).\n"
-                "Gunakan <code>/cmd git init</code> jika ingin menginisialisasi Git."
+                "⚠️ This folder is not a Git repository (no <code>.git</code> directory found).\n"
+                "Run <code>/cmd git init</code> to initialize Git."
             )
             kb = {"inline_keyboard": [[{"text": "📂 Switch Project", "callback_data": "cb:menu_projects"}, {"text": "🏠 Main Menu", "callback_data": "cb:home"}]]}
             return text, kb
@@ -1340,10 +1384,10 @@ class TelegramBridgeBot:
         if st_lines:
             st_preview = "\n".join(e(x) for x in st_lines[:15])
             if len(st_lines) > 15:
-                st_preview += f"\n... (+{len(st_lines) - 15} file lainnya)"
-            st_block = f"📝 <b>Working Tree ({len(st_lines)} file berubah):</b>\n<pre><code>{st_preview}</code></pre>"
+                st_preview += f"\n... (+{len(st_lines) - 15} more files)"
+            st_block = f"📝 <b>Working Tree ({len(st_lines)} modified files):</b>\n<pre><code>{st_preview}</code></pre>"
         else:
-            st_block = "✅ <b>Working Tree Clean</b> (Tidak ada file yang belum di-commit)."
+            st_block = "✅ <b>Working Tree Clean</b> (No uncommitted changes)."
 
         text = (
             "╭─── 🔀 <b>GIT CONTROL CENTER</b> ───╮\n"
@@ -1353,22 +1397,22 @@ class TelegramBridgeBot:
             f"│ 🌐 <b>Remote  :</b> <code>{e(g['remote'][:60])}</code>\n"
             "╰────────────────────────────────╯\n\n"
             f"{st_block}\n\n"
-            "💡 <i>Custom commit:</i> <code>/git commit pesan commit anda</code>\n"
-            "💡 <i>Buat branch baru:</i> <code>/git branch nama-branch-baru</code>"
+            "💡 <i>Custom commit:</i> <code>/git commit your commit message</code>\n"
+            "💡 <i>Create new branch:</i> <code>/git branch new-branch-name</code>"
         )
         kb = {
             "inline_keyboard": [
                 [
-                    {"text": "🔍 Lihat Diff", "callback_data": "cb:diff"},
+                    {"text": "🔍 View Diff", "callback_data": "cb:diff"},
                     {"text": "🚀 Quick Commit & Push", "callback_data": "git_act:ask_commit_push"},
                 ],
                 [
-                    {"text": "🌿 Pindah Branch", "callback_data": "git_act:branches"},
+                    {"text": "🌿 Switch Branch", "callback_data": "git_act:branches"},
                     {"text": "⬇️ Git Pull", "callback_data": "git_act:pull"},
                     {"text": "⬆️ Git Push", "callback_data": "git_act:push"},
                 ],
                 [
-                    {"text": "⏪ Undo Semua Editan", "callback_data": "cb:ask_undo"},
+                    {"text": "⏪ Undo All Edits", "callback_data": "cb:ask_undo"},
                     {"text": "🔄 Refresh", "callback_data": "cb:git"},
                 ],
                 [
@@ -1385,15 +1429,15 @@ class TelegramBridgeBot:
             t_url = tunnel_info["url"]
             elapsed = int(time.time() - tunnel_info["start_time"])
             tunnel_box = (
-                "🟢 <b>LIVE TUNNEL AKTIF:</b>\n"
-                f"🔗 <b>Link HP:</b> <a href=\"{e(t_url)}\">{e(t_url)}</a>\n"
-                f"🔌 <b>Target :</b> <code>http://localhost:{t_port}</code> (Aktif {elapsed}s)\n\n"
+                "🟢 <b>LIVE TUNNEL ACTIVE:</b>\n"
+                f"🔗 <b>Mobile URL:</b> <a href=\"{e(t_url)}\">{e(t_url)}</a>\n"
+                f"🔌 <b>Target    :</b> <code>http://localhost:{t_port}</code> (Up {elapsed}s)\n\n"
             )
         else:
             self.active_tunnel = None
-            tunnel_box = "⚪ <b>Status Tunnel:</b> <code>Belum ada tunnel yang aktif</code>\n\n"
+            tunnel_box = "⚪ <b>Tunnel Status:</b> <code>No active tunnel</code>\n\n"
 
-        port_lines = ["📡 <b>Status Server Lokal di Laptop:</b>"]
+        port_lines = ["📡 <b>Local Dev Server Status on Laptop:</b>"]
         kb_rows = []
         row = []
         for port, label in COMMON_DEV_PORTS:
@@ -1409,10 +1453,10 @@ class TelegramBridgeBot:
             kb_rows.append(row)
 
         if self.active_tunnel:
-            kb_rows.insert(0, [{"text": f"🛑 Matikan Tunnel (Port {self.active_tunnel['port']})", "callback_data": "preview_stop"}])
+            kb_rows.insert(0, [{"text": f"🛑 Stop Tunnel (Port {self.active_tunnel['port']})", "callback_data": "preview_stop"}])
 
         kb_rows.append([
-            {"text": "🔄 Refresh Status Port", "callback_data": "cb:preview"},
+            {"text": "🔄 Refresh Port Status", "callback_data": "cb:preview"},
             {"text": "🏠 Main Menu", "callback_data": "cb:home"},
         ])
 
@@ -1422,7 +1466,7 @@ class TelegramBridgeBot:
             "╰──────────────────────────────────────────────────╯\n\n"
             f"{tunnel_box}"
             + "\n".join(port_lines)
-            + "\n\n💡 <i>Tap tombol port di bawah untuk membuka akses HTTPS ke HP Anda, atau ketik</i> <code>/preview &lt;port&gt;</code>"
+            + "\n\n💡 <i>Tap a port button below to open an HTTPS tunnel to your phone, or type</i> <code>/preview &lt;port&gt;</code>"
         )
         return text, {"inline_keyboard": kb_rows}
 
@@ -1442,8 +1486,8 @@ class TelegramBridgeBot:
         self.stop_live_tunnel()
         status_id = self.send_message(
             chat_id,
-            f"⏳ <b>Menghubungkan Live HTTPS Tunnel ke <code>localhost:{port}</code>...</b>\n"
-            "<i>Mohon tunggu sekitar 3–6 detik...</i>",
+            f"⏳ <b>Connecting Live HTTPS Tunnel to <code>localhost:{port}</code>...</b>\n"
+            "<i>Please wait 3–6 seconds...</i>",
         )
 
         # Prioritaskan cloudflared jika ada, atau gunakan OpenSSH bawaan Windows (localhost.run)
@@ -1470,7 +1514,7 @@ class TelegramBridgeBot:
             self.edit_message(
                 chat_id,
                 status_id,
-                "❌ <b>Gagal membuat tunnel:</b> OpenSSH (<code>ssh.exe</code>) maupun <code>cloudflared</code> tidak ditemukan di Windows.",
+                "❌ <b>Failed to create tunnel:</b> Neither OpenSSH (<code>ssh.exe</code>) nor <code>cloudflared</code> was found on Windows.",
             )
             return
 
@@ -1485,7 +1529,7 @@ class TelegramBridgeBot:
                 errors="replace",
             )
         except Exception as exc:
-            self.edit_message(chat_id, status_id, f"❌ Gagal menjalankan proses tunnel: <code>{e(exc)}</code>")
+            self.edit_message(chat_id, status_id, f"❌ Failed to start tunnel process: <code>{e(exc)}</code>")
             return
 
         found_url = ""
@@ -1517,7 +1561,7 @@ class TelegramBridgeBot:
             self.edit_message(
                 chat_id,
                 status_id,
-                f"⚠️ <b>Timeout saat membuat tunnel untuk port {port}.</b>\nPastikan koneksi internet laptop stabil.",
+                f"⚠️ <b>Timed out while creating tunnel for port {port}.</b>\nPlease check your laptop's internet connection.",
             )
             return
 
@@ -1536,16 +1580,16 @@ class TelegramBridgeBot:
         bat_str = f"{pct}% ({'⚡ AC Charging' if charging else '🔋 Battery'})" if has_bat else "🔌 AC Direct"
         text = (
             "╭─── 🔌 <b>REMOTE POWER & SECURITY CONTROL</b> ───╮\n"
-            f"│ 🔋 <b>Baterai    :</b> <code>{bat_str}</code>\n"
-            "│ 🚨 <b>Watchdog   :</b> <code>Aktif (Alert Baterai &lt; 20%)</code>\n"
+            f"│ 🔋 <b>Battery    :</b> <code>{bat_str}</code>\n"
+            "│ 🚨 <b>Watchdog   :</b> <code>Active (Low Battery Alert &lt; 20%)</code>\n"
             "╰─────────────────────────────────────────────╯\n\n"
-            "👇 <i>Pilih kontrol daya laptop dari jarak jauh:</i>"
+            "👇 <i>Select a remote laptop power or security action:</i>"
         )
         kb = {
             "inline_keyboard": [
                 [
                     {"text": "🔒 Lock Screen (Win+L)", "callback_data": "pwr_ask:lock"},
-                    {"text": "🖥️ Matikan Layar", "callback_data": "pwr_ask:screen_off"},
+                    {"text": "🖥️ Turn Off Display", "callback_data": "pwr_ask:screen_off"},
                 ],
                 [
                     {"text": "🌙 Sleep Laptop", "callback_data": "pwr_ask:sleep"},
@@ -1565,31 +1609,32 @@ class TelegramBridgeBot:
             q_items = list(self.task_queue)
 
         lines = [
-            "╭─── 📋 <b>SMART TASK QUEUE (ANTREAN PROMPT)</b> ───╮",
-            f"│ ⚙️ <b>Sedang Jalan :</b> <code>{running_cnt} Task</code>",
-            f"│ ⏳ <b>Dalam Antrean:</b> <code>{len(q_items)} Prompt</code>",
-            "╰─────────────────────────────────────────────╯",
+            "╭─── 📋 <b>SMART TASK QUEUE</b> ───╮",
+            f"│ ⚙️ <b>Running Now :</b> <code>{running_cnt} Task(s)</code>",
+            f"│ ⏳ <b>In Queue    :</b> <code>{len(q_items)} Prompt(s)</code>",
+            "╰──────────────────────────────╯",
         ]
         kb_rows = []
         if not q_items:
-            lines.append("\n✅ <b>Antrean kosong.</b> Semua prompt telah selesai dikerjakan.")
+            lines.append("\n✅ <b>Queue is empty.</b> All prompts have been processed.")
         else:
-            lines.append("\n📌 <b>Daftar Antrean (Otomatis jalan berurutan):</b>")
+            lines.append("\n📌 <b>Queued Prompts (Auto-executed sequentially):</b>")
             for idx, item in enumerate(q_items, 1):
                 qid = item["qid"]
+                m_disp = item.get("model") or "auto"
                 lines.append(
-                    f"\n<b>{idx}. [Queue #{qid}] {e(item['agent'].upper())}</b>\n"
+                    f"\n<b>{idx}. [Queue #{qid}] {e(item['agent'].upper())}</b> (<code>{e(m_disp)}</code>)\n"
                     f"   📂 <code>{e(item['workspace'])}</code>\n"
                     f"   💬 <i>\"{e(item['prompt'][:90])}\"</i>"
                 )
                 kb_rows.append([
-                    {"text": f"⚡ Jalankan Sekarang (#{qid})", "callback_data": f"q_force:{qid}"},
-                    {"text": f"❌ Hapus (#{qid})", "callback_data": f"q_cancel:{qid}"},
+                    {"text": f"⚡ Run in Parallel Now (#{qid})", "callback_data": f"q_force:{qid}"},
+                    {"text": f"❌ Remove (#{qid})", "callback_data": f"q_cancel:{qid}"},
                 ])
-            kb_rows.append([{"text": "🗑️ Kosongkan Semua Antrean", "callback_data": "q_clear"}])
+            kb_rows.append([{"text": "🗑️ Clear All Queued Prompts", "callback_data": "q_clear"}])
 
         kb_rows.append([
-            {"text": "⏳ Lihat Task Aktif (/tasks)", "callback_data": "cb:tasks"},
+            {"text": "⏳ View Active Tasks (/tasks)", "callback_data": "cb:tasks"},
             {"text": "🏠 Main Menu", "callback_data": "cb:home"},
         ])
         return "\n".join(lines), {"inline_keyboard": kb_rows}
@@ -1789,46 +1834,69 @@ class TelegramBridgeBot:
         pad = self.pending_launchpads.get(pad_id, {})
         prompt = pad.get("prompt", "")
         attached = pad.get("attached_file", "")
+        pad_agent = pad.get("agent") or self.active_agent
+        pad_model = pad.get("model") or self.get_model_for_agent(pad_agent)
+        pad_ws = pad.get("workspace") or self.active_workspace
+        pad_safe = self.safe_mode if "safe_mode" not in pad else bool(pad["safe_mode"])
+
         attach_line = f"\n│ 📎 <b>Attachment:</b> <code>{e(os.path.basename(attached))}</code>" if attached else ""
-        mode_btn = "🟢 Mode: SAFE (Tap -> 🔴 Edit)" if self.safe_mode else "🔴 Mode: EDIT (Tap -> 🟢 Safe)"
-        short_model = self.active_model or "Default"
+        mode_btn = "🟢 Mode: SAFE (Tap -> 🔴 Edit)" if pad_safe else "🔴 Mode: EDIT (Tap -> 🟢 Safe)"
+        short_model = pad_model or "Default"
+
+        with self.tasks_lock:
+            running_list = list(self.running_tasks.items())
+        parallel_line = ""
+        if running_list:
+            run_tags = [f"#{tid} {t['agent'].upper()} ({os.path.basename(t['workspace']) or t['workspace']})" for tid, t in running_list]
+            parallel_line = f"\n│ ⚡ <b>Running :</b> <code>{e(', '.join(run_tags))} (Parallel Ready)</code>"
 
         text = (
-            "╭─── 🎯 <b>PROMPT EXECUTION CONFIRMATION</b> ───╮\n"
-            f"│ 📂 <b>Project :</b> <code>{e(self.active_workspace)}</code>\n"
-            f"│ 🛡️ <b>Mode    :</b> <code>{e(self.mode_label())}</code>\n"
-            f"│ 🧠 <b>Model   :</b> <code>{e(short_model)}</code>{attach_line}\n"
-            "╰─────────────────────────────────────╯\n\n"
+            "╭─── 🎯 <b>PROMPT LAUNCHPAD (MULTI-AGENT)</b> ───╮\n"
+            f"│ 🤖 <b>Agent   :</b> <code>{e(pad_agent.upper())}</code>\n"
+            f"│ 🧠 <b>Model   :</b> <code>{e(short_model)}</code>\n"
+            f"│ 📂 <b>Project :</b> <code>{e(pad_ws)}</code>\n"
+            f"│ 🛡️ <b>Mode    :</b> <code>{e(self.mode_label(pad_safe))}</code>{attach_line}{parallel_line}\n"
+            "╰────────────────────────────────────────╯\n\n"
             f"💬 <b>Your Prompt:</b>\n<pre><code>{e(prompt[:600])}</code></pre>\n"
-            "👇 <b>Select an AI Agent to execute:</b>\n"
-            "<i>(⭐/🟢 = Ready on PC | ⚪ = CLI Not Installed)</i>"
+            "👇 <b>Tap 🚀 Run Now, or switch Agent / Model / Project for this task:</b>"
         )
 
         self.config = load_config()
         agents = self.config.get("agents", {})
-        sorted_keys = sorted(agents.keys(), key=lambda k: (not is_agent_installed(k, self.config), k != self.active_agent))
+        sorted_keys = sorted(agents.keys(), key=lambda k: (not is_agent_installed(k, self.config), k != pad_agent))
+
+        kb_rows = [
+            [
+                {
+                    "text": f"🚀 Run Now with {pad_agent.upper()} ({short_model.split('/')[-1][:14]})",
+                    "callback_data": f"pad_run:{pad_id}:{pad_agent}",
+                }
+            ]
+        ]
+
         agent_buttons = []
         row = []
         for k in sorted_keys:
             installed = is_agent_installed(k, self.config)
-            if k == self.active_agent and installed:
-                badge = "⭐ "
+            if k == pad_agent and installed:
+                badge = "✅ "
             elif installed:
                 badge = "🟢 "
             else:
                 badge = "⚪ "
-            row.append({"text": f"{badge}{k.upper()}", "callback_data": f"pad_run:{pad_id}:{k}"})
+            row.append({"text": f"{badge}Select {k.upper()}", "callback_data": f"pad_sel_agent:{pad_id}:{k}"})
             if len(row) == 2:
                 agent_buttons.append(row)
                 row = []
         if row:
             agent_buttons.append(row)
+        kb_rows.extend(agent_buttons)
 
-        kb_rows = list(agent_buttons)
+        ws_short = os.path.basename(pad_ws) or pad_ws
         kb_rows.append(
             [
                 {"text": f"🧠 Model ({short_model.split('/')[-1][:14]})", "callback_data": f"pad_models:{pad_id}:0"},
-                {"text": "📂 Change Project", "callback_data": f"pad_projects:{pad_id}"},
+                {"text": f"📂 Project ({ws_short[:12]})", "callback_data": f"pad_projects:{pad_id}"},
             ]
         )
         kb_rows.append(
@@ -1840,8 +1908,11 @@ class TelegramBridgeBot:
         return text, {"inline_keyboard": kb_rows}
 
     def build_models_keyboard(self, page: int = 0, pad_id: str = "") -> dict:
+        pad = self.pending_launchpads.get(pad_id, {}) if pad_id else {}
+        target_agent = pad.get("agent", self.active_agent)
+        current_model = pad.get("model", self.active_model)
         if not self.cached_models:
-            self.cached_models = fetch_available_models(self.active_agent)
+            self.cached_models = fetch_available_models(target_agent)
 
         page_size = 8
         total = len(self.cached_models)
@@ -1853,7 +1924,7 @@ class TelegramBridgeBot:
         rows = []
         for idx, m in enumerate(slice_models):
             real_idx = start_idx + idx
-            icon = "✅" if m == self.active_model else "🧠"
+            icon = "✅" if m == current_model else "🧠"
             cb_data = f"pad_setm:{pad_id}:{real_idx}" if pad_id else f"set_model:{real_idx}"
             rows.append([{"text": f"{icon} {m}", "callback_data": cb_data}])
 
@@ -1869,7 +1940,7 @@ class TelegramBridgeBot:
 
         extra_row = [{"text": "🔄 Refresh Models", "callback_data": f"pad_refm:{pad_id}" if pad_id else "cb:refresh_models"}]
         if pad_id:
-            extra_row.append({"text": "🔙 Back to Prompt", "callback_data": f"pad_back:{pad_id}"})
+            extra_row.append({"text": "🔙 Back to Launchpad", "callback_data": f"pad_back:{pad_id}"})
         else:
             extra_row.append({"text": "🏠 Main Menu", "callback_data": "cb:home"})
         rows.append(extra_row)
@@ -1901,14 +1972,16 @@ class TelegramBridgeBot:
     def build_projects_keyboard(self, pad_id: str = "") -> dict:
         self.config = load_config()
         all_projs = discover_all_projects(self.config)
+        pad = self.pending_launchpads.get(pad_id, {}) if pad_id else {}
+        ref_ws = pad.get("workspace", self.active_workspace)
         rows = []
         for k, v in all_projs.items():
-            is_curr = os.path.normcase(os.path.abspath(v)) == os.path.normcase(os.path.abspath(self.active_workspace))
+            is_curr = os.path.normcase(os.path.abspath(v)) == os.path.normcase(os.path.abspath(ref_ws))
             icon = "✅" if is_curr else "📂"
             cb = f"pad_setp:{pad_id}:{k}" if pad_id else f"set_proj:{k}"
             rows.append([{"text": f"{icon} {k} ({v})", "callback_data": cb}])
         if pad_id:
-            rows.append([{"text": "🔙 Back to Prompt", "callback_data": f"pad_back:{pad_id}"}])
+            rows.append([{"text": "🔙 Back to Launchpad", "callback_data": f"pad_back:{pad_id}"}])
         else:
             rows.append(
                 [
@@ -1928,7 +2001,6 @@ class TelegramBridgeBot:
         for p in glob.glob(str(Path.home() / ".gemini" / "*" / "brain" / "*" / ".system_generated" / "logs" / "transcript.jsonl")):
             try:
                 mt = os.path.getmtime(p)
-                # Jika ada sesi Antigravity yang baru saja aktif (< 45 detik terakhir), langsung pantau!
                 agy_seen[p] = 0 if (now_init - mt) < 45 else mt
             except Exception:
                 pass
@@ -1955,7 +2027,7 @@ class TelegramBridgeBot:
 
             now = time.time()
 
-            # 0. Proactive Battery Watchdog (Cek setiap 60 detik)
+            # 0. Proactive Battery Watchdog (Check every 60 seconds)
             if now - self.last_battery_check_ts >= 60:
                 self.last_battery_check_ts = now
                 try:
@@ -1965,21 +2037,21 @@ class TelegramBridgeBot:
                         alert_kb = {
                             "inline_keyboard": [
                                 [
-                                    {"text": "💤 Hibernate Sekarang", "callback_data": "pwr_do:hibernate"},
-                                    {"text": "🌙 Sleep Sekarang", "callback_data": "pwr_do:sleep"},
+                                    {"text": "💤 Hibernate Now", "callback_data": "pwr_do:hibernate"},
+                                    {"text": "🌙 Sleep Now", "callback_data": "pwr_do:sleep"},
                                 ],
                                 [
-                                    {"text": "💻 Cek /sys", "callback_data": "cb:sys"},
+                                    {"text": "💻 Check /sys", "callback_data": "cb:sys"},
                                 ],
                             ]
                         }
                         self.send_message(
                             self.allowed_chat_id,
-                            "╭─── 🚨 <b>PERINGATAN BATERAI LAPTOP LEMAH!</b> ───╮\n"
-                            f"│ 🔋 <b>Sisa Baterai :</b> <code>[{make_bar(pct)}] {pct}%</code>\n"
-                            "│ 🔌 <b>Status Cas   :</b> <code>TIDAK TERCOLOK (Battery Mode)</code>\n"
-                            "╰───────────────────────────────────────────╯\n"
-                            "⚠️ Segera colokkan charger laptop Anda atau pilih <b>Hibernate / Sleep</b> di bawah agar pekerjaan kodingan tidak hilang!",
+                            "╭─── 🚨 <b>LOW LAPTOP BATTERY ALERT!</b> ───╮\n"
+                            f"│ 🔋 <b>Battery Left :</b> <code>[{make_bar(pct)}] {pct}%</code>\n"
+                            "│ 🔌 <b>Power Status :</b> <code>UNPLUGGED (On Battery)</code>\n"
+                            "╰────────────────────────────────────────╯\n"
+                            "⚠️ Please plug in your laptop charger immediately or tap <b>Hibernate / Sleep</b> below so your coding session is not lost!",
                             reply_markup=alert_kb,
                         )
                     elif charging or pct >= 25:
@@ -1987,7 +2059,7 @@ class TelegramBridgeBot:
                 except Exception:
                     pass
 
-            # 1. Pantau Google Antigravity transcripts
+            # 1. Monitor Google Antigravity transcripts
             try:
                 pattern = str(Path.home() / ".gemini" / "*" / "brain" / "*" / ".system_generated" / "logs" / "transcript.jsonl")
                 for p in glob.glob(pattern):
@@ -2039,16 +2111,16 @@ class TelegramBridgeBot:
                         if not is_finished:
                             agy_seen[p] = mtime
                             self.send_chat_action(self.allowed_chat_id, "typing")
-                            current_action = "🧠 AI sedang berpikir & menganalisis..."
+                            current_action = "🧠 AI is thinking & analyzing..."
                             if step_type == "PLANNER_RESPONSE" and has_tools:
                                 tcalls = last_obj.get("tool_calls") or []
                                 if tcalls:
                                     tname = tcalls[-1].get("name", "tool")
-                                    current_action = f"🔧 Menjalankan tool: <code>{e(tname)}</code>"
+                                    current_action = f"🔧 Running tool: <code>{e(tname)}</code>"
                             elif latest_turn_tool:
-                                current_action = f"⚙️ Memproses hasil tool: <code>{e(latest_turn_tool)}</code>..."
+                                current_action = f"⚙️ Processing tool output: <code>{e(latest_turn_tool)}</code>..."
                             elif step_type != "USER_INPUT":
-                                current_action = f"⚙️ Memproses langkah (<code>{e(step_type.lower())}</code>)..."
+                                current_action = f"⚙️ Processing step (<code>{e(step_type.lower())}</code>)..."
 
                             self.update_live_status_banner(f"Antigravity: {strip_html_tags(current_action)}")
 
@@ -2126,7 +2198,7 @@ class TelegramBridgeBot:
             except Exception:
                 pass
 
-            # 2. Pantau OpenCode SQLite DB (session_message)
+            # 2. Monitor OpenCode SQLite DB (session_message)
             if opencode_db.exists():
                 try:
                     con = sqlite3.connect(str(opencode_db))
@@ -2209,13 +2281,13 @@ class TelegramBridgeBot:
                             if asst_txt:
                                 summary = asst_txt[:1200] + ("..." if len(asst_txt) > 1200 else "")
                                 think_card = (
-                                    f"<blockquote expandable>💭 <b>Proses Berpikir AI:</b>\n{e(think_txt[:500])}</blockquote>\n\n"
+                                    f"<blockquote expandable>💭 <b>AI Thinking Process:</b>\n{e(think_txt[:500])}</blockquote>\n\n"
                                     if think_txt
                                     else ""
                                 )
                                 git_info = get_git_changes_summary_html(self.active_workspace)
                                 msg = (
-                                    "╭─── ✅ <b>OPENCODE SELESAI BEKERJA</b> ───╮\n"
+                                    "╭─── ✅ <b>OPENCODE TASK COMPLETED</b> ───╮\n"
                                     f"│ 🧠 <b>Model  :</b> <code>{e(model_id)}</code>\n"
                                     f"│ 💬 <b>Prompt :</b> <code>{e(user_txt[:150])}</code>\n"
                                     "╰───────────────────────────────────╯\n\n"
@@ -2236,14 +2308,14 @@ class TelegramBridgeBot:
                                 think_txt, tool_txt, _ = get_latest_opencode_thinking(since_ms=info.get("start_ms", 0))
                                 extra_live = ""
                                 if tool_txt:
-                                    extra_live += f"\n🔧 <b>Tool Aktif:</b> <code>{e(tool_txt)}</code>"
+                                    extra_live += f"\n🔧 <b>Active Tool:</b> <code>{e(tool_txt)}</code>"
                                 if think_txt:
-                                    extra_live += f"\n<blockquote expandable>💭 <b>Sedang Berpikir:</b>\n{e(think_txt[-350:])}</blockquote>"
+                                    extra_live += f"\n<blockquote expandable>💭 <b>Thinking Process:</b>\n{e(think_txt[-350:])}</blockquote>"
                                 self.edit_message(
                                     self.allowed_chat_id,
                                     info["msg_id"],
-                                    f"╭─── {spin} <b>OPENCODE SEDANG BEKERJA</b> ───╮\n"
-                                    f"│ ⏱️ <b>Waktu  :</b> <code>{elapsed}s [{make_progress_bar(elapsed)}]</code>\n"
+                                    f"╭─── {spin} <b>OPENCODE IS WORKING</b> ───╮\n"
+                                    f"│ ⏱️ <b>Time   :</b> <code>{elapsed}s [{make_progress_bar(elapsed)}]</code>\n"
                                     f"│ 💬 <b>Prompt :</b> <code>{e(info['prompt'][:140])}</code>\n"
                                     f"╰────────────────────────────────────╯{extra_live}",
                                 )
@@ -2260,6 +2332,10 @@ class TelegramBridgeBot:
         self.pending_launchpads[pad_id] = {
             "prompt": prompt,
             "attached_file": attached_file,
+            "agent": self.active_agent,
+            "model": self.get_model_for_agent(self.active_agent),
+            "workspace": self.active_workspace,
+            "safe_mode": self.safe_mode,
         }
         text, kb = self.build_launchpad_text_and_kb(pad_id)
         self.send_message(chat_id, text, reply_markup=kb)
@@ -2273,13 +2349,15 @@ class TelegramBridgeBot:
         attached_file: str = "",
         force: bool = False,
         bypass_queue: bool = False,
+        model: str = "",
+        safe_mode: bool = None,
     ) -> None:
         blocked, reason = is_protected_folder(workspace)
         if blocked:
             self.send_message(
                 chat_id,
-                f"⛔ <b>[Proteksi Keamanan Aktif]</b>\n{e(reason)}\n\n"
-                "Silakan pilih folder project koding Anda terlebih dahulu melalui tombol di bawah:",
+                f"⛔ <b>[Security Protection Active]</b>\n{e(reason)}\n\n"
+                "Please select your coding project folder below:",
                 reply_markup=self.build_projects_keyboard(),
             )
             return
@@ -2288,14 +2366,17 @@ class TelegramBridgeBot:
         if not is_agent_installed(agent_key, self.config):
             self.send_message(
                 chat_id,
-                f"⚠️ <b>CLI Agent <code>{e(agent_key.upper())}</code> Belum Terinstal di Laptop!</b>\n\n"
-                "Saat ini AI Agent yang terdeteksi siap di laptop Anda adalah:\n"
+                f"⚠️ <b>CLI Agent <code>{e(agent_key.upper())}</code> is not installed on your laptop!</b>\n\n"
+                "Currently ready AI Agents on your PC:\n"
                 "• 🟢 <b>OPENCODE</b> (OpenCode AI CLI)\n"
                 "• 🟢 <b>AGY</b> (Google Antigravity CLI)\n\n"
-                "Silakan pilih <b>OPENCODE</b> atau <b>AGY</b> di bawah:",
+                "Please select <b>OPENCODE</b> or <b>AGY</b> below:",
                 reply_markup=self.build_agents_keyboard(),
             )
             return
+
+        effective_model = model if (model and is_model_compatible_with_agent(model, agent_key)) else self.get_model_for_agent(agent_key)
+        effective_safe = self.safe_mode if safe_mode is None else bool(safe_mode)
 
         if not force and DANGEROUS_PATTERNS.search(prompt):
             conf_id = uuid.uuid4().hex[:8]
@@ -2305,31 +2386,37 @@ class TelegramBridgeBot:
                 "prompt": prompt,
                 "workspace": workspace,
                 "attached_file": attached_file,
+                "model": effective_model,
+                "safe_mode": effective_safe,
             }
             kb = {
                 "inline_keyboard": [
                     [
-                        {"text": "⚠️ Ya, Saya Yakin Jalankan", "callback_data": f"confirm_ok:{conf_id}"},
-                        {"text": "❌ Batalkan", "callback_data": f"confirm_no:{conf_id}"},
+                        {"text": "⚠️ Yes, Run Anyway", "callback_data": f"confirm_ok:{conf_id}"},
+                        {"text": "❌ Cancel", "callback_data": f"confirm_no:{conf_id}"},
                     ]
                 ]
             }
             self.send_message(
                 chat_id,
-                "╭─── 🛡️ <b>KONFIRMASI KEAMANAN DATA</b> ───╮\n"
-                "│ ⚠️ Terdeteksi kata sensitif (hapus/remove/reset)\n"
+                "╭─── 🛡️ <b>DATA SAFETY CONFIRMATION</b> ───╮\n"
+                "│ ⚠️ Sensitive keyword detected (delete/remove/reset)\n"
                 f"│ 📂 <b>Folder:</b> <code>{e(workspace)}</code>\n"
                 "╰────────────────────────────────────╯\n"
                 f"<pre><code>{e(prompt)}</code></pre>\n"
-                "Apakah Anda benar-benar yakin ingin menjalankan perintah ini?",
+                "Are you sure you want to execute this prompt?",
                 reply_markup=kb,
             )
             return
 
         if not bypass_queue:
             with self.tasks_lock:
-                busy_tasks = len(self.running_tasks)
-                if busy_tasks > 0:
+                norm_ws = os.path.normcase(os.path.abspath(workspace))
+                same_agent_ws_busy = any(
+                    t["agent"] == agent_key and os.path.normcase(os.path.abspath(t["workspace"])) == norm_ws
+                    for t in self.running_tasks.values()
+                )
+                if same_agent_ws_busy:
                     self.queue_counter += 1
                     qid = self.queue_counter
                     q_pos = len(self.task_queue) + 1
@@ -2337,6 +2424,8 @@ class TelegramBridgeBot:
                         "qid": qid,
                         "chat_id": chat_id,
                         "agent": agent_key,
+                        "model": effective_model,
+                        "safe_mode": effective_safe,
                         "prompt": prompt,
                         "workspace": workspace,
                         "attached_file": attached_file,
@@ -2344,30 +2433,30 @@ class TelegramBridgeBot:
                     q_kb = {
                         "inline_keyboard": [
                             [
-                                {"text": f"⚡ Jalankan Paksa Sekarang", "callback_data": f"q_force:{qid}"},
-                                {"text": f"❌ Batalkan (#{qid})", "callback_data": f"q_cancel:{qid}"},
+                                {"text": "⚡ Run in Parallel Anyway", "callback_data": f"q_force:{qid}"},
+                                {"text": f"❌ Cancel (#{qid})", "callback_data": f"q_cancel:{qid}"},
                             ],
                             [
-                                {"text": "📋 Lihat Semua Antrean (/queue)", "callback_data": "cb:queue"},
+                                {"text": "📋 View Full Queue (/queue)", "callback_data": "cb:queue"},
                             ],
                         ]
                     }
                     self.send_message(
                         chat_id,
-                        f"╭─── 📋 <b>MASUK ANTREAN OTOMATIS (QUEUE #{qid})</b> ───╮\n"
-                        f"│ ⏳ <b>Posisi Antrean :</b> <code>Urutan ke-{q_pos}</code>\n"
-                        f"│ 🤖 <b>Target Agent   :</b> <code>{e(agent_key.upper())}</code>\n"
+                        f"╭─── 📋 <b>ADDED TO SMART QUEUE (QUEUE #{qid})</b> ───╮\n"
+                        f"│ ⏳ <b>Queue Position :</b> <code>#{q_pos}</code>\n"
+                        f"│ 🤖 <b>Target Agent   :</b> <code>{e(agent_key.upper())} ({e(effective_model)})</code>\n"
                         f"│ 📂 <b>Project        :</b> <code>{e(workspace)}</code>\n"
                         "╰─────────────────────────────────────────────╯\n"
                         f"💬 <b>Prompt:</b> <i>\"{e(prompt[:140])}\"</i>\n\n"
-                        "ℹ️ <i>Sedang ada AI Agent yang bekerja. Prompt ini akan dieksekusi otomatis begitu task sebelumnya selesai agar tidak bentrok mengedit file.</i>",
+                        "ℹ️ <i>The same AI Agent is already working in this project folder. This prompt is queued automatically to prevent edit conflicts (or tap <b>⚡ Run in Parallel Anyway</b> below).</i>",
                         reply_markup=q_kb,
                     )
                     return
 
         t = threading.Thread(
             target=self.run_agent_task,
-            args=(chat_id, agent_key, prompt, workspace, attached_file),
+            args=(chat_id, agent_key, prompt, workspace, attached_file, effective_model, effective_safe),
             daemon=True,
         )
         t.start()
@@ -2375,12 +2464,20 @@ class TelegramBridgeBot:
     def _trigger_next_queued_task(self) -> None:
         next_item = None
         with self.tasks_lock:
-            if not self.running_tasks and self.task_queue:
-                next_item = self.task_queue.pop(0)
+            if self.task_queue:
+                for idx, candidate in enumerate(self.task_queue):
+                    c_ws = os.path.normcase(os.path.abspath(candidate["workspace"]))
+                    conflict = any(
+                        t["agent"] == candidate["agent"] and os.path.normcase(os.path.abspath(t["workspace"])) == c_ws
+                        for t in self.running_tasks.values()
+                    )
+                    if not conflict:
+                        next_item = self.task_queue.pop(idx)
+                        break
         if next_item:
             self.send_message(
                 next_item["chat_id"],
-                f"🚀 <b>Menjalankan Antrean Berikutnya (Queue #{next_item['qid']}):</b>\n"
+                f"🚀 <b>Starting Next Queued Task (Queue #{next_item['qid']}):</b>\n"
                 f"💬 <i>\"{e(next_item['prompt'][:120])}\"</i>",
             )
             t = threading.Thread(
@@ -2391,43 +2488,56 @@ class TelegramBridgeBot:
                     next_item["prompt"],
                     next_item["workspace"],
                     next_item.get("attached_file", ""),
+                    next_item.get("model", ""),
+                    next_item.get("safe_mode", None),
                 ),
                 daemon=True,
             )
             t.start()
 
-    def run_agent_task(self, chat_id: str, agent_key: str, prompt: str, workspace: str, attached_file: str = "") -> None:
+    def run_agent_task(
+        self,
+        chat_id: str,
+        agent_key: str,
+        prompt: str,
+        workspace: str,
+        attached_file: str = "",
+        model: str = "",
+        safe_mode: bool = None,
+    ) -> None:
         self.config = load_config()
         agents_cfg = self.config.get("agents", {})
         if agent_key not in agents_cfg:
             self.send_message(
                 chat_id,
-                f"❌ Agent <code>{e(agent_key)}</code> tidak ditemukan di config.json.\nKetik /agents untuk melihat daftar agent.",
+                f"❌ Agent <code>{e(agent_key)}</code> not found in config.json.\nType /agents to view available agents.",
             )
             return
 
         agent_info = agents_cfg[agent_key]
         agent_title = agent_info.get("name", agent_key)
         cmd_template = list(agent_info.get("command", []))
+        task_safe_mode = self.safe_mode if safe_mode is None else bool(safe_mode)
+        task_model = model if (model and is_model_compatible_with_agent(model, agent_key)) else self.get_model_for_agent(agent_key)
 
         effective_prompt = prompt
-        if self.safe_mode:
+        if task_safe_mode:
             effective_prompt = (
-                "[ATURAN KEAMANAN READ-ONLY AKTIF: Kamu DILARANG mengubah, membuat, atau menghapus file apa pun. "
-                "Hanya baca kode/analisis dan jawab pertanyaan berikut secara langsung] " + prompt
+                "[READ-ONLY SAFETY RULE ACTIVE: You are STRICTLY FORBIDDEN from modifying, creating, or deleting any files. "
+                "Only read/analyze code and answer the following request directly] " + prompt
             )
 
         file_flag = agent_info.get("file_flag", "")
         if attached_file and not file_flag:
-            effective_prompt = f"[Lihat file lampiran di: {attached_file}] " + effective_prompt
+            effective_prompt = f"[See attached file at: {attached_file}] " + effective_prompt
 
         continue_flag = agent_info.get("continue_flag", "")
         model_flag = agent_info.get("model_flag", "")
-        mode_flags = agent_info.get("readonly_flags" if self.safe_mode else "write_flags") or []
+        mode_flags = agent_info.get("readonly_flags" if task_safe_mode else "write_flags") or []
 
         resolved_bin = resolve_cli_executable(cmd_template[0]) if cmd_template else ""
         if not resolved_bin:
-            self.send_message(chat_id, f"❌ Executable untuk <code>{e(agent_key)}</code> tidak ditemukan di PATH.")
+            self.send_message(chat_id, f"❌ Executable for <code>{e(agent_key)}</code> was not found in PATH.")
             return
 
         extra_flags = []
@@ -2435,8 +2545,8 @@ class TelegramBridgeBot:
             extra_flags.extend(mode_flags)
         if self.continue_session and continue_flag:
             extra_flags.append(continue_flag)
-        if self.active_model and model_flag and is_model_compatible_with_agent(self.active_model, agent_key):
-            extra_flags.extend([model_flag, self.active_model])
+        if task_model and model_flag and is_model_compatible_with_agent(task_model, agent_key):
+            extra_flags.extend([model_flag, task_model])
         if attached_file and file_flag:
             extra_flags.extend([file_flag, attached_file])
 
@@ -2447,9 +2557,6 @@ class TelegramBridgeBot:
             else:
                 template_tail.append(part)
 
-        # Cari posisi penyisipan extra_flags yang sesuai sintaks CLI:
-        # - Jika ada flag prompt (-p, --message, -q, dll) tepat sebelum prompt, taruh extra_flags SEBELUM flag tsb.
-        # - Jika prompt adalah positional argument (misal: "opencode run ... [prompt]"), taruh extra_flags sebelum prompt.
         prompt_flags_set = {"-p", "--prompt", "--print", "-q", "--message"}
         insert_idx = len(template_tail)
         for i, token in enumerate(template_tail):
@@ -2469,22 +2576,21 @@ class TelegramBridgeBot:
             self.task_counter += 1
             task_id = self.task_counter
 
-        active_model_display = self.active_model if is_model_compatible_with_agent(self.active_model, agent_key) else "default"
-        log_activity(f"🚀 MULAI Task #{task_id} [{agent_key} | {active_model_display}] ({self.mode_label()}) di '{workspace}' | Prompt: {prompt}")
+        active_model_display = task_model if is_model_compatible_with_agent(task_model, agent_key) else "default"
+        log_activity(f"🚀 START Task #{task_id} [{agent_key} | {active_model_display}] ({self.mode_label(task_safe_mode)}) in '{workspace}' | Prompt: {prompt}")
 
         kill_markup = {
             "inline_keyboard": [[{"text": f"🛑 Stop Task #{task_id}", "callback_data": f"kill:{task_id}"}]]
         }
 
         self.send_chat_action(chat_id, "typing")
-        self.update_live_status_banner(f"Task #{task_id} [{agent_key.upper()}]: {prompt[:60]}", force=True)
         attach_note = f"\n│ 📎 <b>File   :</b> <code>{e(os.path.basename(attached_file))}</code>" if attached_file else ""
         model_note = f"\n│ 🧠 <b>Model  :</b> <code>{e(active_model_display)}</code>"
         status_msg_id = self.send_message(
             chat_id,
             f"╭─── 🧠💭 <b>TASK #{task_id}: {e(agent_key.upper())} IN PROGRESS</b> ───╮\n"
             f"│ ⏱️ <b>Time   :</b> <code>0s [{make_progress_bar(0)}]</code>\n"
-            f"│ 🛡️ <b>Mode   :</b> <code>{e(self.mode_label())}</code>{model_note}\n"
+            f"│ 🛡️ <b>Mode   :</b> <code>{e(self.mode_label(task_safe_mode))}</code>{model_note}\n"
             f"│ 📂 <b>Folder :</b> <code>{e(workspace)}</code>{attach_note}\n"
             "╰─────────────────────────────────────╯\n"
             f"💬 <b>Prompt:</b> <i>\"{e(prompt[:160])}\"</i>\n\n"
@@ -2515,11 +2621,14 @@ class TelegramBridgeBot:
             with self.tasks_lock:
                 self.running_tasks[task_id] = {
                     "agent": agent_key,
+                    "model": active_model_display,
+                    "safe_mode": task_safe_mode,
                     "prompt": prompt,
                     "process": proc,
                     "start_time": start_ts,
                     "workspace": workspace,
                 }
+            self.update_live_status_banner(f"Task #{task_id} [{agent_key.upper()}]: {prompt[:60]}", force=True)
 
             def _reader():
                 nonlocal last_output_ts
@@ -2556,17 +2665,17 @@ class TelegramBridgeBot:
                         "inline_keyboard": [
                             [
                                 {"text": f"🛑 Force Kill Task #{task_id}", "callback_data": f"kill:{task_id}"},
-                                {"text": "📸 Cek Layar (/ss)", "callback_data": "cb:screenshot"},
+                                {"text": "📸 Check Screen (/ss)", "callback_data": "cb:screenshot"},
                             ]
                         ]
                     }
                     self.send_message(
                         chat_id,
                         "╭─── 🚨 <b>STUCK TASK DETECTOR</b> ───╮\n"
-                        f"│ ⚠️ <b>Task #{task_id} ({e(agent_title)})</b> belum mengeluarkan output baru selama <code>{int(now - last_output_ts)}s</code>.\n"
-                        f"│ ⏱️ <b>Total Waktu :</b> <code>{elapsed}s</code>\n"
+                        f"│ ⚠️ <b>Task #{task_id} ({e(agent_title)})</b> has produced no new output for <code>{int(now - last_output_ts)}s</code>.\n"
+                        f"│ ⏱️ <b>Total Time :</b> <code>{elapsed}s</code>\n"
                         "╰──────────────────────────────────╯\n"
-                        "💡 <i>Jika proses CLI macet atau menggantung, Anda dapat menghentikannya lewat tombol di bawah:</i>",
+                        "💡 <i>If the CLI process is hung, you can terminate it using the button below:</i>",
                         reply_markup=stuck_kb,
                     )
 
@@ -2602,7 +2711,7 @@ class TelegramBridgeBot:
                 live_text = (
                     f"╭─── {spin} <b>TASK #{task_id}: {e(agent_key.upper())} IN PROGRESS</b> ───╮\n"
                     f"│ ⏱️ <b>Time   :</b> <code>{elapsed}s [{make_progress_bar(elapsed)}]</code>\n"
-                    f"│ 🛡️ <b>Mode   :</b> <code>{e(self.mode_label())}</code>{model_note}\n"
+                    f"│ 🛡️ <b>Mode   :</b> <code>{e(self.mode_label(task_safe_mode))}</code>{model_note}\n"
                     f"│ 📂 <b>Folder :</b> <code>{e(workspace)}</code>{attach_note}\n"
                     "╰─────────────────────────────────────╯\n"
                     f"💬 <b>Prompt:</b> <i>\"{e(prompt[:160])}\"</i>"
@@ -2616,6 +2725,7 @@ class TelegramBridgeBot:
             duration = round(time.time() - start_ts, 1)
             with self.tasks_lock:
                 self.running_tasks.pop(task_id, None)
+                still_busy = bool(self.running_tasks)
             self.delete_message(chat_id, status_msg_id)
             self.send_message(
                 chat_id,
@@ -2623,10 +2733,7 @@ class TelegramBridgeBot:
                 f"<pre><code>{e(str(exc))}</code></pre>",
             )
             self._trigger_next_queued_task()
-        with self.tasks_lock:
-            still_busy = bool(self.running_tasks)
-        if not still_busy:
-            self.update_live_status_banner("", force=True)
+            self.update_live_status_banner("" if not still_busy else "Working...", force=True)
             return
 
         duration = round(time.time() - start_ts, 1)
@@ -2642,7 +2749,6 @@ class TelegramBridgeBot:
 
         output_clean = clean_agent_stdout(stdout_data)
 
-        # Untuk OpenCode, ambil jawaban & proses berpikir yang 100% bersih langsung dari SQLite DB jika tersedia
         if agent_key == "opencode":
             db_think, _, db_ans = get_latest_opencode_thinking(since_ms=start_ms)
             if db_think:
@@ -2664,7 +2770,7 @@ class TelegramBridgeBot:
         header = (
             f"╭─── {icon} <b>TASK #{task_id} COMPLETED ({duration}s)</b> ───╮\n"
             f"│ 🤖 <b>Agent  :</b> <code>{e(agent_title)}</code>{model_note}\n"
-            f"│ 🛡️ <b>Mode   :</b> <code>{e(self.mode_label())}</code>\n"
+            f"│ 🛡️ <b>Mode   :</b> <code>{e(self.mode_label(task_safe_mode))}</code>\n"
             f"│ 📂 <b>Folder :</b> <code>{e(workspace)}</code>\n"
             f"│ 💬 <b>Prompt :</b> <code>{e(prompt[:120])}</code>\n"
             "╰─────────────────────────────────────╯\n\n"
@@ -2694,8 +2800,7 @@ class TelegramBridgeBot:
         self._trigger_next_queued_task()
         with self.tasks_lock:
             still_busy = bool(self.running_tasks)
-        if not still_busy:
-            self.update_live_status_banner("", force=True)
+        self.update_live_status_banner("" if not still_busy else "Working...", force=True)
 
     def handle_screenshot(self, chat_id: str) -> None:
         self.send_chat_action(chat_id, "upload_photo")
@@ -2793,7 +2898,7 @@ class TelegramBridgeBot:
                             "document",
                             "sendDocument",
                             chosen_path,
-                            caption=f"📥 File: {chosen_path.name}\n📂 Lokasi: {chosen_path.parent}",
+                            caption=f"📥 File: {chosen_path.name}\n📂 Location: {chosen_path.parent}",
                         )
             return
 
@@ -2826,17 +2931,17 @@ class TelegramBridgeBot:
                                 "document",
                                 "sendDocument",
                                 chosen_path,
-                                caption=f"📦 File Biner/Dokumen: {chosen_path.name}",
+                                caption=f"📦 Binary/Document File: {chosen_path.name}",
                             )
                             return
                         try:
                             raw_content = chosen_path.read_text(encoding="utf-8", errors="replace")
                             ext = chosen_path.suffix.lstrip(".") or "txt"
                             preview = raw_content[:2500]
-                            more_note = "\n<i>... (File dipotong, klik tombol Download di bawah untuk file utuh)</i>" if len(raw_content) > 2500 else ""
+                            more_note = "\n<i>... (File truncated, tap Download below for the full file)</i>" if len(raw_content) > 2500 else ""
                             file_view = (
                                 "╭─── 📄 <b>FILE VIEWER</b> ───╮\n"
-                                f"│ 📄 <b>Nama :</b> <code>{e(chosen_path.name)}</code>\n"
+                                f"│ 📄 <b>Name :</b> <code>{e(chosen_path.name)}</code>\n"
                                 f"│ 📂 <b>Path :</b> <code>{e(str(chosen_path.parent))}</code>\n"
                                 "╰──────────────────────────╯\n"
                                 f"<pre><code class=\"language-{e(ext)}\">{e(preview)}</code></pre>{more_note}"
@@ -2854,10 +2959,30 @@ class TelegramBridgeBot:
                             }
                             self.edit_message(chat_id, msg_id, file_view, reply_markup=kb)
                         except Exception as exc:
-                            self.send_message(chat_id, f"⚠️ Tidak dapat membaca file: <code>{e(exc)}</code>")
+                            self.send_message(chat_id, f"⚠️ Cannot read file: <code>{e(exc)}</code>")
             return
 
-        # --- Handler untuk Interactive Prompt Launchpad (pad_*) ---
+        # --- Handler for Interactive Prompt Launchpad (pad_*) ---
+        if data.startswith("pad_sel_agent:"):
+            parts = data.split(":", 2)
+            if len(parts) == 3:
+                _, pad_id, chosen_agent = parts
+                self.config = load_config()
+                if not is_agent_installed(chosen_agent, self.config):
+                    self.send_message(
+                        chat_id,
+                        f"⚠️ <b>CLI Agent <code>{e(chosen_agent.upper())}</code> is not installed on your laptop!</b>\n"
+                        "Please select <b>OPENCODE</b> or <b>AGY</b> on the Launchpad card.",
+                    )
+                    return
+                if pad_id in self.pending_launchpads:
+                    self.pending_launchpads[pad_id]["agent"] = chosen_agent
+                    self.pending_launchpads[pad_id]["model"] = self.get_model_for_agent(chosen_agent)
+                    self.cached_models = fetch_available_models(chosen_agent)
+                    txt, kb = self.build_launchpad_text_and_kb(pad_id)
+                    self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
+            return
+
         if data.startswith("pad_run:"):
             parts = data.split(":", 2)
             if len(parts) == 3:
@@ -2866,39 +2991,53 @@ class TelegramBridgeBot:
                 if not is_agent_installed(chosen_agent, self.config):
                     self.send_message(
                         chat_id,
-                        f"⚠️ <b>CLI Agent <code>{e(chosen_agent.upper())}</code> belum terinstal di laptop Anda!</b>\n"
-                        "Silakan klik tombol <b>⭐/🟢 OPENCODE</b> atau <b>🟢 AGY</b> pada kartu konfirmasi di atas.",
+                        f"⚠️ <b>CLI Agent <code>{e(chosen_agent.upper())}</code> is not installed on your laptop!</b>\n"
+                        "Please select <b>OPENCODE</b> or <b>AGY</b> on the Launchpad card above.",
                     )
                     return
                 pad = self.pending_launchpads.pop(pad_id, None)
                 if not pad:
-                    self.edit_message(chat_id, msg_id, "ℹ️ Sesi konfirmasi prompt ini sudah selesai atau kadaluarsa.")
+                    self.edit_message(chat_id, msg_id, "ℹ️ This prompt launchpad session has already completed or expired.")
                     return
+                pad_ws = pad.get("workspace") or self.active_workspace
+                pad_safe = self.safe_mode if "safe_mode" not in pad else bool(pad["safe_mode"])
+                pad_model = pad.get("model") if pad.get("agent") == chosen_agent else self.get_model_for_agent(chosen_agent)
                 self.active_agent = chosen_agent
+                self.active_workspace = pad_ws
+                self.safe_mode = pad_safe
+                if pad_model and is_model_compatible_with_agent(pad_model, chosen_agent):
+                    self.set_model_for_agent(chosen_agent, pad_model)
                 self.config["default_agent"] = chosen_agent
+                self.config["default_workspace"] = pad_ws
+                self.config["safe_mode"] = pad_safe
                 save_config(self.config)
                 self.delete_message(chat_id, msg_id)
                 self.queue_or_run_agent(
                     chat_id,
                     chosen_agent,
                     pad["prompt"],
-                    self.active_workspace,
+                    pad_ws,
                     attached_file=pad.get("attached_file", ""),
+                    model=pad_model,
+                    safe_mode=pad_safe,
                 )
             return
 
         if data.startswith("pad_cancel:"):
             pad_id = data.split(":", 1)[1]
             self.pending_launchpads.pop(pad_id, None)
-            self.edit_message(chat_id, msg_id, "🛑 <b>Eksekusi prompt dibatalkan.</b>")
+            self.edit_message(chat_id, msg_id, "🛑 <b>Prompt execution cancelled.</b>")
             return
 
         if data.startswith("pad_mode:"):
             pad_id = data.split(":", 1)[1]
-            self.safe_mode = not self.safe_mode
-            self.config["safe_mode"] = self.safe_mode
-            save_config(self.config)
             if pad_id in self.pending_launchpads:
+                cur_safe = self.pending_launchpads[pad_id].get("safe_mode", self.safe_mode)
+                new_safe = not cur_safe
+                self.pending_launchpads[pad_id]["safe_mode"] = new_safe
+                self.safe_mode = new_safe
+                self.config["safe_mode"] = new_safe
+                save_config(self.config)
                 txt, kb = self.build_launchpad_text_and_kb(pad_id)
                 self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
             return
@@ -2907,22 +3046,28 @@ class TelegramBridgeBot:
             parts = data.split(":")
             pad_id = parts[1]
             page = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
-            self.cached_models = fetch_available_models(self.active_agent)
+            pad = self.pending_launchpads.get(pad_id, {})
+            t_agent = pad.get("agent", self.active_agent)
+            t_model = pad.get("model", self.get_model_for_agent(t_agent))
+            self.cached_models = fetch_available_models(t_agent)
             self.edit_message(
                 chat_id,
                 msg_id,
-                f"╭─── 🧠 <b>PILIH MODEL AI ({e(self.active_agent.upper())})</b> ───╮\n│ Model Aktif: <code>{e(self.active_model)}</code>\n╰──────────────────────────────────╯",
+                f"╭─── 🧠 <b>SELECT AI MODEL ({e(t_agent.upper())})</b> ───╮\n│ Selected Model: <code>{e(t_model)}</code>\n╰──────────────────────────────────╯",
                 reply_markup=self.build_models_keyboard(page=page, pad_id=pad_id),
             )
             return
 
         if data.startswith("pad_refm:"):
             pad_id = data.split(":", 1)[1]
-            self.cached_models = fetch_available_models(self.active_agent)
+            pad = self.pending_launchpads.get(pad_id, {})
+            t_agent = pad.get("agent", self.active_agent)
+            t_model = pad.get("model", self.get_model_for_agent(t_agent))
+            self.cached_models = fetch_available_models(t_agent)
             self.edit_message(
                 chat_id,
                 msg_id,
-                f"✅ <b>Daftar model {e(self.active_agent.upper())} di-refresh ({len(self.cached_models)} model)!</b>\n🧠 Saat ini: <code>{e(self.active_model)}</code>",
+                f"✅ <b>Model list for {e(t_agent.upper())} refreshed ({len(self.cached_models)} models)!</b>\n🧠 Selected: <code>{e(t_model)}</code>",
                 reply_markup=self.build_models_keyboard(page=0, pad_id=pad_id),
             )
             return
@@ -2932,9 +3077,13 @@ class TelegramBridgeBot:
             pad_id = parts[1]
             idx = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
             if 0 <= idx < len(self.cached_models):
-                self.active_model = self.cached_models[idx]
-                self.config["default_model"] = self.active_model
-                save_config(self.config)
+                chosen_m = self.cached_models[idx]
+                if pad_id in self.pending_launchpads:
+                    t_agent = self.pending_launchpads[pad_id].get("agent", self.active_agent)
+                    self.pending_launchpads[pad_id]["model"] = chosen_m
+                    self.set_model_for_agent(t_agent, chosen_m)
+                else:
+                    self.set_model_for_agent(self.active_agent, chosen_m)
             if pad_id in self.pending_launchpads:
                 txt, kb = self.build_launchpad_text_and_kb(pad_id)
                 self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
@@ -2942,10 +3091,12 @@ class TelegramBridgeBot:
 
         if data.startswith("pad_projects:"):
             pad_id = data.split(":", 1)[1]
+            pad = self.pending_launchpads.get(pad_id, {})
+            t_ws = pad.get("workspace", self.active_workspace)
             self.edit_message(
                 chat_id,
                 msg_id,
-                f"╭─── 📂 <b>PILIH FOLDER PROJECT</b> ───╮\n│ Aktif: <code>{e(self.active_workspace)}</code>\n╰───────────────────────────────╯",
+                f"╭─── 📂 <b>SELECT PROJECT FOLDER</b> ───╮\n│ Selected: <code>{e(t_ws)}</code>\n╰────────────────────────────────╯",
                 reply_markup=self.build_projects_keyboard(pad_id=pad_id),
             )
             return
@@ -2956,9 +3107,12 @@ class TelegramBridgeBot:
                 _, pad_id, proj_key = parts
                 all_projs = discover_all_projects(self.config)
                 if proj_key in all_projs:
-                    self.active_workspace = all_projs[proj_key]
+                    chosen_ws = all_projs[proj_key]
+                    if pad_id in self.pending_launchpads:
+                        self.pending_launchpads[pad_id]["workspace"] = chosen_ws
+                    self.active_workspace = chosen_ws
                     self.continue_session = False
-                    self.config["default_workspace"] = self.active_workspace
+                    self.config["default_workspace"] = chosen_ws
                     save_config(self.config)
                 if pad_id in self.pending_launchpads:
                     txt, kb = self.build_launchpad_text_and_kb(pad_id)
@@ -2972,7 +3126,7 @@ class TelegramBridgeBot:
                 self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
             return
 
-        # --- Handler Menu Standar ---
+        # --- Standard Menu Handlers ---
         if data == "cb:home":
             self.handle_command(chat_id, "/help")
             return
@@ -2997,7 +3151,7 @@ class TelegramBridgeBot:
             self.edit_message(
                 chat_id,
                 msg_id,
-                f"╭─── 🧠 <b>DAFTAR MODEL AI ({e(self.active_agent.upper())})</b> ───╮\n│ Model Aktif: <code>{e(self.active_model)}</code>\n╰──────────────────────────────────╯\nTap salah satu model di bawah untuk mengaktifkan:",
+                f"╭─── 🧠 <b>AI MODEL LIST ({e(self.active_agent.upper())})</b> ───╮\n│ Active Model: <code>{e(self.active_model)}</code>\n╰──────────────────────────────────╯\nTap any model below to activate it:",
                 reply_markup=self.build_models_keyboard(page=page),
             )
 
@@ -3006,7 +3160,7 @@ class TelegramBridgeBot:
             self.edit_message(
                 chat_id,
                 msg_id,
-                f"✅ <b>Daftar model {e(self.active_agent.upper())} diperbarui ({len(self.cached_models)} model)!</b>\n🧠 Model Aktif: <code>{e(self.active_model)}</code>",
+                f"✅ <b>Model list for {e(self.active_agent.upper())} refreshed ({len(self.cached_models)} models)!</b>\n🧠 Active Model: <code>{e(self.active_model)}</code>",
                 reply_markup=self.build_models_keyboard(page=0),
             )
 
@@ -3015,13 +3169,11 @@ class TelegramBridgeBot:
             if idx_str.isdigit():
                 idx = int(idx_str)
                 if 0 <= idx < len(self.cached_models):
-                    self.active_model = self.cached_models[idx]
-                    self.config["default_model"] = self.active_model
-                    save_config(self.config)
+                    self.set_model_for_agent(self.active_agent, self.cached_models[idx])
                     self.edit_message(
                         chat_id,
                         msg_id,
-                        f"✅ <b>Model AI Berhasil Diganti!</b>\n🧠 Model Aktif: <code>{e(self.active_model)}</code>",
+                        f"✅ <b>AI Model Switched Successfully!</b>\n🧠 Active Model: <code>{e(self.active_model)}</code>",
                         reply_markup=self.default_action_buttons(),
                     )
 
@@ -3036,24 +3188,24 @@ class TelegramBridgeBot:
             self.config["safe_mode"] = self.safe_mode
             save_config(self.config)
             desc = (
-                "🟢 <b>Mode AMAN (Plan / Read-Only) AKTIF.</b>\nAI berjalan dalam mode Plan/Read-Only dan dilarang mengubah/menghapus file."
+                "🟢 <b>SAFE Mode (Plan / Read-Only) is ACTIVE.</b>\nAI runs in Plan/Read-Only mode and is forbidden from modifying or deleting files."
                 if self.safe_mode
-                else "🔴 <b>Mode EDIT (Build / Write) AKTIF.</b>\nAI sekarang diizinkan membuat & mengedit file di folder project aktif."
+                else "🔴 <b>EDIT Mode (Build / Write) is ACTIVE.</b>\nAI is now permitted to create & edit files in the active project folder."
             )
-            self.send_message(chat_id, f"🛡️ <b>Status Keamanan Diperbarui:</b>\n{desc}", reply_markup=self.default_action_buttons())
+            self.send_message(chat_id, f"🛡️ <b>Security Mode Updated:</b>\n{desc}", reply_markup=self.default_action_buttons())
 
         elif data == "cb:ask_undo":
             kb = {
                 "inline_keyboard": [
                     [
-                        {"text": "⏪ Ya, Kembalikan File (Git Checkout)", "callback_data": "cb:do_undo"},
-                        {"text": "❌ Batal", "callback_data": "cb:cancel_undo"},
+                        {"text": "⏪ Yes, Restore Files (Git Checkout)", "callback_data": "cb:do_undo"},
+                        {"text": "❌ Cancel", "callback_data": "cb:cancel_undo"},
                     ]
                 ]
             }
             self.send_message(
                 chat_id,
-                f"⚠️ <b>Konfirmasi Undo (Git Restore)</b>\nApakah Anda ingin membatalkan semua editan yang belum di-commit di folder:\n<code>{e(self.active_workspace)}</code>?",
+                f"⚠️ <b>Confirm Undo (Git Restore)</b>\nDo you want to discard all uncommitted edits in:\n<code>{e(self.active_workspace)}</code>?",
                 reply_markup=kb,
             )
 
@@ -3069,22 +3221,22 @@ class TelegramBridgeBot:
                     timeout=10,
                 )
                 if res.returncode == 0:
-                    self.edit_message(chat_id, msg_id, f"✅ <b>Berhasil!</b> Semua perubahan file di <code>{e(self.active_workspace)}</code> telah dikembalikan ke kondisi semula.")
+                    self.edit_message(chat_id, msg_id, f"✅ <b>Restored!</b> All uncommitted file changes in <code>{e(self.active_workspace)}</code> have been reverted.")
                 else:
-                    self.edit_message(chat_id, msg_id, f"⚠️ Gagal melakukan git restore:\n<pre><code>{e(res.stdout)}</code></pre>")
+                    self.edit_message(chat_id, msg_id, f"⚠️ Failed to run git restore:\n<pre><code>{e(res.stdout)}</code></pre>")
             except Exception as e_err:
                 self.edit_message(chat_id, msg_id, f"❌ Error: <code>{e(e_err)}</code>")
 
         elif data == "cb:cancel_undo":
-            self.edit_message(chat_id, msg_id, "ℹ️ Undo dibatalkan. Perubahan file tetap disimpan.")
+            self.edit_message(chat_id, msg_id, "ℹ️ Undo cancelled. File changes were kept.")
 
         elif data.startswith("confirm_ok:"):
             conf_id = data.split(":", 1)[1]
             item = self.pending_confirmations.pop(conf_id, None)
             if not item:
-                self.edit_message(chat_id, msg_id, "ℹ️ Konfirmasi ini sudah kadaluarsa atau selesai.")
+                self.edit_message(chat_id, msg_id, "ℹ️ This confirmation has expired or already completed.")
                 return
-            self.edit_message(chat_id, msg_id, f"✅ <b>Dikonfirmasi!</b> Menjalankan perintah: <code>{e(item['prompt'])}</code>")
+            self.edit_message(chat_id, msg_id, f"✅ <b>Confirmed!</b> Executing: <code>{e(item['prompt'])}</code>")
             if item["type"] == "agent":
                 self.queue_or_run_agent(
                     chat_id,
@@ -3093,6 +3245,8 @@ class TelegramBridgeBot:
                     item["workspace"],
                     item.get("attached_file", ""),
                     force=True,
+                    model=item.get("model", ""),
+                    safe_mode=item.get("safe_mode", None),
                 )
             elif item["type"] == "cmd":
                 self._execute_shell_cmd(chat_id, item["prompt"])
@@ -3100,7 +3254,7 @@ class TelegramBridgeBot:
         elif data.startswith("confirm_no:"):
             conf_id = data.split(":", 1)[1]
             self.pending_confirmations.pop(conf_id, None)
-            self.edit_message(chat_id, msg_id, "🛑 <b>Perintah berbahaya berhasil dibatalkan.</b> Data Anda tetap aman!")
+            self.edit_message(chat_id, msg_id, "🛑 <b>Sensitive command cancelled.</b> Your data remains safe!")
 
         elif data == "cb:menu_agents":
             self.handle_command(chat_id, "/agents")
@@ -3124,13 +3278,13 @@ class TelegramBridgeBot:
         elif data == "git_act:ask_commit_push":
             g = get_git_dashboard_info(self.active_workspace)
             if not g["status_lines"]:
-                self.send_message(chat_id, "ℹ️ <b>Working tree sudah bersih!</b> Tidak ada perubahan baru untuk di-commit.")
+                self.send_message(chat_id, "ℹ️ <b>Working tree is already clean!</b> No new changes to commit.")
                 return
             kb = {
                 "inline_keyboard": [
                     [
-                        {"text": "🚀 Ya, Commit & Push Sekarang", "callback_data": "git_act:do_commit_push"},
-                        {"text": "❌ Batal", "callback_data": "cb:git"},
+                        {"text": "🚀 Yes, Commit & Push Now", "callback_data": "git_act:do_commit_push"},
+                        {"text": "❌ Cancel", "callback_data": "cb:git"},
                     ]
                 ]
             }
@@ -3138,17 +3292,17 @@ class TelegramBridgeBot:
             self.edit_message(
                 chat_id,
                 msg_id,
-                f"╭─── 🚀 <b>KONFIRMASI QUICK COMMIT & PUSH</b> ───╮\n"
+                f"╭─── 🚀 <b>CONFIRM QUICK COMMIT & PUSH</b> ───╮\n"
                 f"│ 📂 <b>Folder :</b> <code>{e(self.active_workspace)}</code>\n"
                 f"│ 🌿 <b>Branch :</b> <code>{e(g['branch'])}</code>\n"
-                "╰─────────────────────────────────────────╯\n"
+                "╰───────────────────────────────────────╯\n"
                 f"<pre><code>{preview_files}</code></pre>\n"
-                "Semua perubahan di atas akan di-stage (<code>git add -A</code>), di-commit otomatis, dan di-push ke origin.",
+                "All changes above will be staged (<code>git add -A</code>), committed automatically, and pushed to origin.",
                 reply_markup=kb,
             )
 
         elif data == "git_act:do_commit_push":
-            self.edit_message(chat_id, msg_id, "⏳ <b>Menjalankan Git Add, Commit, & Push...</b>")
+            self.edit_message(chat_id, msg_id, "⏳ <b>Running Git Add, Commit, & Push...</b>")
             try:
                 g = get_git_dashboard_info(self.active_workspace)
                 changed_names = [line[3:].strip() for line in g["status_lines"][:4] if len(line) > 3]
@@ -3185,18 +3339,18 @@ class TelegramBridgeBot:
                 self.edit_message(
                     chat_id,
                     msg_id,
-                    f"{icon} <b>Hasil Commit & Push:</b>\n<pre><code>{e(out_log[:1200])}</code></pre>\n\n{txt}",
+                    f"{icon} <b>Commit & Push Result:</b>\n<pre><code>{e(out_log[:1200])}</code></pre>\n\n{txt}",
                     reply_markup=kb,
                 )
             except Exception as exc:
-                self.edit_message(chat_id, msg_id, f"❌ Gagal Commit & Push: <code>{e(exc)}</code>")
+                self.edit_message(chat_id, msg_id, f"❌ Commit & Push Failed: <code>{e(exc)}</code>")
 
         elif data == "git_act:pull":
-            self.edit_message(chat_id, msg_id, "⏳ <b>Menjalankan <code>git pull</code>...</b>")
+            self.edit_message(chat_id, msg_id, "⏳ <b>Running <code>git pull</code>...</b>")
             self._execute_shell_cmd(chat_id, "git pull")
 
         elif data == "git_act:push":
-            self.edit_message(chat_id, msg_id, "⏳ <b>Menjalankan <code>git push</code>...</b>")
+            self.edit_message(chat_id, msg_id, "⏳ <b>Running <code>git push</code>...</b>")
             self._execute_shell_cmd(chat_id, "git push")
 
         elif data == "git_act:branches":
@@ -3205,15 +3359,15 @@ class TelegramBridgeBot:
             for br in g["branches"][:16]:
                 mark = "✅ " if br == g["branch"] else "🌿 "
                 kb_rows.append([{"text": f"{mark}{br}", "callback_data": f"git_checkout:{br[:40]}"}])
-            kb_rows.append([{"text": "🔙 Kembali ke Git Center", "callback_data": "cb:git"}])
+            kb_rows.append([{"text": "🔙 Back to Git Center", "callback_data": "cb:git"}])
             self.edit_message(
                 chat_id,
                 msg_id,
-                f"╭─── 🌿 <b>PILIH BRANCH GIT</b> ───╮\n"
-                f"│ Aktif: <code>{e(g['branch'])}</code>\n"
-                "╰───────────────────────────╯\n"
-                "Tap salah satu branch di bawah untuk berpindah (<code>git checkout</code>),\n"
-                "atau ketik <code>/git branch nama-baru</code> untuk membuat branch baru:",
+                f"╭─── 🌿 <b>SELECT GIT BRANCH</b> ───╮\n"
+                f"│ Active: <code>{e(g['branch'])}</code>\n"
+                "╰────────────────────────────╯\n"
+                "Tap any branch below to switch (<code>git checkout</code>),\n"
+                "or type <code>/git branch new-branch-name</code> to create a new branch:",
                 reply_markup={"inline_keyboard": kb_rows},
             )
 
@@ -3240,7 +3394,7 @@ class TelegramBridgeBot:
                     reply_markup=kb,
                 )
             except Exception as exc:
-                self.send_message(chat_id, f"❌ Gagal pindah branch: <code>{e(exc)}</code>")
+                self.send_message(chat_id, f"❌ Failed to switch branch: <code>{e(exc)}</code>")
 
         elif data == "cb:presets":
             txt, kb = self.build_presets_ui()
@@ -3265,7 +3419,7 @@ class TelegramBridgeBot:
         elif data == "preview_stop":
             self.stop_live_tunnel()
             txt, kb = self.build_preview_ui()
-            self.edit_message(chat_id, msg_id, "🛑 <b>Live Tunnel berhasil dihentikan.</b>\n\n" + txt, reply_markup=kb)
+            self.edit_message(chat_id, msg_id, "🛑 <b>Live Tunnel stopped successfully.</b>\n\n" + txt, reply_markup=kb)
 
         elif data == "cb:queue":
             txt, kb = self.build_queue_ui()
@@ -3281,7 +3435,7 @@ class TelegramBridgeBot:
                 with self.tasks_lock:
                     self.task_queue = [item for item in self.task_queue if item["qid"] != qid]
                 txt, kb = self.build_queue_ui()
-                self.edit_message(chat_id, msg_id, f"🗑️ <b>Queue #{qid} dihapus dari antrean.</b>\n\n" + txt, reply_markup=kb)
+                self.edit_message(chat_id, msg_id, f"🗑️ <b>Queue #{qid} removed from queue.</b>\n\n" + txt, reply_markup=kb)
 
         elif data.startswith("q_force:"):
             qid_s = data.split(":", 1)[1]
@@ -3294,7 +3448,7 @@ class TelegramBridgeBot:
                             target_item = self.task_queue.pop(i)
                             break
                 if target_item:
-                    self.edit_message(chat_id, msg_id, f"⚡ <b>Menjalankan Queue #{qid} sekarang...</b>")
+                    self.edit_message(chat_id, msg_id, f"⚡ <b>Running Queue #{qid} in parallel now...</b>")
                     self.queue_or_run_agent(
                         target_item["chat_id"],
                         target_item["agent"],
@@ -3303,13 +3457,15 @@ class TelegramBridgeBot:
                         target_item.get("attached_file", ""),
                         force=True,
                         bypass_queue=True,
+                        model=target_item.get("model", ""),
+                        safe_mode=target_item.get("safe_mode", None),
                     )
 
         elif data == "q_clear":
             with self.tasks_lock:
                 self.task_queue.clear()
             txt, kb = self.build_queue_ui()
-            self.edit_message(chat_id, msg_id, "🧹 <b>Semua antrean prompt telah dikosongkan.</b>\n\n" + txt, reply_markup=kb)
+            self.edit_message(chat_id, msg_id, "🧹 <b>All queued prompts have been cleared.</b>\n\n" + txt, reply_markup=kb)
 
         elif data == "cb:power":
             txt, kb = self.build_power_ui()
@@ -3318,24 +3474,24 @@ class TelegramBridgeBot:
         elif data.startswith("pwr_ask:"):
             act = data.split(":", 1)[1].strip()
             labels = {
-                "lock": "🔒 Lock Screen Windows (Win+L)",
-                "screen_off": "🖥️ Matikan Layar Monitor Laptop",
-                "sleep": "🌙 Sleep Laptop (Mode Tidur)",
-                "hibernate": "💤 Hibernate Laptop (Simpan Sesi & Matikan Daya)",
-                "restart_bot": "🔄 Restart Layanan AI-Bot",
+                "lock": "🔒 Lock Windows Screen (Win+L)",
+                "screen_off": "🖥️ Turn Off Laptop Display",
+                "sleep": "🌙 Sleep Laptop",
+                "hibernate": "💤 Hibernate Laptop (Save Session & Power Off)",
+                "restart_bot": "🔄 Restart AI-Bot Service",
             }
             kb = {
                 "inline_keyboard": [
                     [
-                        {"text": f"✅ Ya, Lakukan ({act.upper()})", "callback_data": f"pwr_do:{act}"},
-                        {"text": "❌ Batal", "callback_data": "cb:power"},
+                        {"text": f"✅ Yes, Execute ({act.upper()})", "callback_data": f"pwr_do:{act}"},
+                        {"text": "❌ Cancel", "callback_data": "cb:power"},
                     ]
                 ]
             }
             self.edit_message(
                 chat_id,
                 msg_id,
-                f"⚠️ <b>Konfirmasi Kontrol Daya Laptop:</b>\nAnda yakin ingin menjalankan <b>{labels.get(act, act)}</b> sekarang?",
+                f"⚠️ <b>Confirm Laptop Power Action:</b>\nAre you sure you want to execute <b>{labels.get(act, act)}</b> now?",
                 reply_markup=kb,
             )
 
@@ -3343,19 +3499,19 @@ class TelegramBridgeBot:
             act = data.split(":", 1)[1].strip()
             if act == "lock":
                 subprocess.run(["rundll32.exe", "user32.dll,LockWorkStation"], stdin=subprocess.DEVNULL)
-                self.edit_message(chat_id, msg_id, "🔒 <b>Layar laptop berhasil dikunci (Lock Screen aktif).</b>", reply_markup=self.default_action_buttons())
+                self.edit_message(chat_id, msg_id, "🔒 <b>Laptop screen locked successfully (Lock Screen active).</b>", reply_markup=self.default_action_buttons())
             elif act == "screen_off":
                 ps_off = "(Add-Type '[DllImport(\"user32.dll\")]public static extern int SendMessage(int hWnd, int hMsg, int wParam, int lParam);' -Name a -PasThru)::SendMessage(-1,0x0112,0xF170,2)"
                 subprocess.Popen(["powershell", "-NoProfile", "-Command", ps_off], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                self.edit_message(chat_id, msg_id, "🖥️ <b>Layar monitor laptop berhasil dimatikan untuk hemat baterai.</b>", reply_markup=self.default_action_buttons())
+                self.edit_message(chat_id, msg_id, "🖥️ <b>Laptop display turned off to save battery.</b>", reply_markup=self.default_action_buttons())
             elif act == "sleep":
-                self.edit_message(chat_id, msg_id, "🌙 <b>Laptop sedang masuk ke mode Sleep...</b>")
+                self.edit_message(chat_id, msg_id, "🌙 <b>Putting laptop into Sleep mode...</b>")
                 subprocess.Popen(["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"], stdin=subprocess.DEVNULL)
             elif act == "hibernate":
-                self.edit_message(chat_id, msg_id, "💤 <b>Laptop sedang masuk ke mode Hibernate...</b>")
+                self.edit_message(chat_id, msg_id, "💤 <b>Putting laptop into Hibernate mode...</b>")
                 subprocess.Popen(["shutdown", "/h"], stdin=subprocess.DEVNULL)
             elif act == "restart_bot":
-                self.edit_message(chat_id, msg_id, "🔄 <b>Me-restart proses AI-Bot...</b>")
+                self.edit_message(chat_id, msg_id, "🔄 <b>Restarting AI-Bot process...</b>")
                 os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve())])
 
         elif data == "cb:diff":
@@ -3382,13 +3538,13 @@ class TelegramBridgeBot:
                         text=True,
                         timeout=10,
                     )
-                    diff_txt = strip_ansi(res_stat.stdout or "").strip() or "Tidak ada perubahan git (working tree clean)."
+                    diff_txt = strip_ansi(res_stat.stdout or "").strip() or "No git changes (working tree clean)."
                 if len(diff_txt) > 3000:
                     self.send_document_content(
                         chat_id,
                         "changes.diff",
                         diff_txt,
-                        caption=f"📄 Git Diff lengkap di {self.active_workspace}",
+                        caption=f"📄 Full Git Diff in {self.active_workspace}",
                     )
                 else:
                     self.send_message(
@@ -3397,7 +3553,7 @@ class TelegramBridgeBot:
                         reply_markup=self.default_action_buttons(),
                     )
             except Exception as exc:
-                self.send_message(chat_id, f"⚠️ Gagal menjalankan git diff: <code>{e(exc)}</code>")
+                self.send_message(chat_id, f"⚠️ Failed to run git diff: <code>{e(exc)}</code>")
 
     def _execute_shell_cmd(self, chat_id: str, arg: str) -> None:
         if arg.strip().lower() in ("dir", "ls", "ls -la", "ls -l"):
@@ -3419,8 +3575,8 @@ class TelegramBridgeBot:
                 shell=True,
                 timeout=60,
             )
-            out = strip_ansi(res.stdout or "").strip() or "(Selesai tanpa output)"
-            status_badge = "✅ 0 (Sukses)" if res.returncode == 0 else f"⚠️ {res.returncode} (Error)"
+            out = strip_ansi(res.stdout or "").strip() or "(Completed with no output)"
+            status_badge = "✅ 0 (Success)" if res.returncode == 0 else f"⚠️ {res.returncode} (Error)"
             header = (
                 "╭─── 💻 <b>TERMINAL CONSOLE UI</b> ───╮\n"
                 f"│ 📂 <b>Folder :</b> <code>{e(self.active_workspace)}</code>\n"
@@ -3429,13 +3585,13 @@ class TelegramBridgeBot:
                 "╰──────────────────────────────╯\n"
             )
             if len(out) > 2800:
-                short_out = f"<pre><code>{e(out[:2000])}</code></pre>\n📎 <i>Output lengkap terlampir di file cmd_output.txt</i>"
+                short_out = f"<pre><code>{e(out[:2000])}</code></pre>\n📎 <i>Full output attached in cmd_output.txt</i>"
                 self.send_message(chat_id, header + short_out, reply_markup=self.default_action_buttons())
                 self.send_document_content(
                     chat_id,
                     "cmd_output.txt",
                     out,
-                    caption=f"💻 Output lengkap `{arg}` (Exit {res.returncode})",
+                    caption=f"💻 Full output of `{arg}` (Exit {res.returncode})",
                 )
             else:
                 self.send_message(
@@ -3444,7 +3600,7 @@ class TelegramBridgeBot:
                     reply_markup=self.default_action_buttons(),
                 )
         except Exception as exc:
-            self.send_message(chat_id, f"❌ Gagal menjalankan perintah: <code>{e(exc)}</code>")
+            self.send_message(chat_id, f"❌ Failed to execute command: <code>{e(exc)}</code>")
 
     def handle_command(self, chat_id: str, text: str) -> None:
         parts = text.strip().split(maxsplit=1)
@@ -3462,7 +3618,7 @@ class TelegramBridgeBot:
                 f"│ 💬 <b>Memory  :</b> <code>{'Continuous (-c)' if self.continue_session else 'New Topic'}</code>\n"
                 "╰─────────────────────────────────╯\n\n"
                 "✨ <b>UI Navigation Guide:</b>\n"
-                "• <b>Type a message or send an image</b> ➡️ Opens the <i>Launchpad Card</i> to select Agent/Model/Project.\n"
+                "• <b>Type a message, voice note, or send an image</b> ➡️ Opens the <i>Launchpad Card</i> to select Agent/Model/Project (supports parallel multi-agent tasks!).\n"
                 "• <b>Tap the buttons below</b> to explore project files (<i>GUI File Explorer</i>), switch Models, switch Projects, or check Laptop status!"
             )
             self.send_message(chat_id, help_text, reply_markup=self.default_action_buttons())
@@ -3473,12 +3629,10 @@ class TelegramBridgeBot:
 
         elif cmd in ("/models", "/model"):
             if arg:
-                self.active_model = arg.strip()
-                self.config["default_model"] = self.active_model
-                save_config(self.config)
+                self.set_model_for_agent(self.active_agent, arg.strip())
                 self.send_message(
                     chat_id,
-                    f"✅ <b>Model AI berhasil diset ke:</b> <code>{e(self.active_model)}</code>",
+                    f"✅ <b>AI Model set to:</b> <code>{e(self.active_model)}</code>",
                     reply_markup=self.default_action_buttons(),
                 )
                 return
@@ -3523,9 +3677,9 @@ class TelegramBridgeBot:
             self.send_message(
                 chat_id,
                 "╭─── 🟢 <b>AI-BOT HEARTBEAT (ONLINE)</b> ───╮\n"
-                f"│ 💓 <b>Status Bot   :</b> <code>AKTIF &amp; RESPONSIF (PID {os.getpid()})</code>\n"
-                f"│ ⏱️ <b>Uptime       :</b> <code>{uptime_sec} detik</code>\n"
-                f"│ 🧠 <b>AI Thinking  :</b> <code>{r_cnt} Task Aktif | {q_cnt} Antrean</code>\n"
+                f"│ 💓 <b>Bot Status   :</b> <code>ACTIVE &amp; RESPONSIVE (PID {os.getpid()})</code>\n"
+                f"│ ⏱️ <b>Uptime       :</b> <code>{uptime_sec} seconds</code>\n"
+                f"│ 🧠 <b>AI Thinking  :</b> <code>{r_cnt} Active Task(s) | {q_cnt} Queued</code>\n"
                 f"│ 🤖 <b>Default Agent:</b> <code>{e(self.active_agent.upper())}</code>\n"
                 "╰────────────────────────────────────────╯",
                 reply_markup=self.default_action_buttons(),
@@ -3557,24 +3711,24 @@ class TelegramBridgeBot:
 
         elif cmd == "/addpreset":
             if "|" not in arg:
-                self.send_message(chat_id, "⚠️ Format: <code>/addpreset Judul Preset | Isi prompt lengkap...</code>")
+                self.send_message(chat_id, "⚠️ Usage: <code>/addpreset Preset Title | Full prompt text...</code>")
                 return
             title, p_text = [x.strip() for x in arg.split("|", 1)]
             if not title or not p_text:
-                self.send_message(chat_id, "⚠️ Judul dan isi prompt tidak boleh kosong.")
+                self.send_message(chat_id, "⚠️ Both preset title and prompt text are required.")
                 return
             self.config = load_config()
             custom_list = self.config.setdefault("custom_presets", [])
             custom_list.append({"id": f"custom_{len(custom_list) + 1}", "title": f"⚡ {title}", "prompt": p_text})
             save_config(self.config)
             txt, kb = self.build_presets_ui()
-            self.send_message(chat_id, f"✅ <b>Preset baru <code>{e(title)}</code> berhasil disimpan!</b>\n\n" + txt, reply_markup=kb)
+            self.send_message(chat_id, f"✅ <b>New preset <code>{e(title)}</code> saved!</b>\n\n" + txt, reply_markup=kb)
 
         elif cmd in ("/preview", "/tunnel"):
             if arg.lower() == "stop":
                 self.stop_live_tunnel()
                 txt, kb = self.build_preview_ui()
-                self.send_message(chat_id, "🛑 <b>Live Tunnel dihentikan.</b>\n\n" + txt, reply_markup=kb)
+                self.send_message(chat_id, "🛑 <b>Live Tunnel stopped.</b>\n\n" + txt, reply_markup=kb)
                 return
             if arg.isdigit():
                 threading.Thread(target=self.start_live_tunnel, args=(chat_id, int(arg)), daemon=True).start()
@@ -3641,9 +3795,9 @@ class TelegramBridgeBot:
             self.active_agent = target
             self.config["default_agent"] = target
             self.cached_models = fetch_available_models(self.active_agent)
-            if not is_model_compatible_with_agent(self.active_model, self.active_agent) and self.cached_models:
-                self.active_model = self.cached_models[0]
-                self.config["default_model"] = self.active_model
+            self.active_model = self.get_model_for_agent(self.active_agent)
+            self.config["default_model"] = self.active_model
+            self.config["agent_models"] = self.agent_models
             save_config(self.config)
             self.send_message(
                 chat_id,
@@ -3653,7 +3807,7 @@ class TelegramBridgeBot:
             )
 
             if extra_prompt:
-                self.queue_or_run_agent(chat_id, self.active_agent, extra_prompt, self.active_workspace)
+                self.queue_or_run_agent(chat_id, self.active_agent, extra_prompt, self.active_workspace, model=self.active_model, safe_mode=self.safe_mode)
 
         elif cmd == "/ask":
             ask_parts = arg.split(maxsplit=1)
@@ -3661,7 +3815,7 @@ class TelegramBridgeBot:
                 self.send_message(chat_id, "⚠️ Format: <code>/ask &lt;agent_code&gt; &lt;prompt&gt;</code>\nExample: <code>/ask opencode what is 1+1?</code>")
                 return
             target_agent, prompt_text = ask_parts[0].lower(), ask_parts[1]
-            self.queue_or_run_agent(chat_id, target_agent, prompt_text, self.active_workspace)
+            self.queue_or_run_agent(chat_id, target_agent, prompt_text, self.active_workspace, model=self.get_model_for_agent(target_agent), safe_mode=self.safe_mode)
 
         elif cmd == "/projects":
             self.config = load_config()
@@ -3685,38 +3839,38 @@ class TelegramBridgeBot:
             target_path = all_projs.get(arg.lower(), arg.strip('"').strip("'"))
             resolved = os.path.abspath(os.path.expanduser(target_path))
             if not os.path.isdir(resolved):
-                self.send_message(chat_id, f"❌ Folder tidak ditemukan: <code>{e(resolved)}</code>")
+                self.send_message(chat_id, f"❌ Folder not found: <code>{e(resolved)}</code>")
                 return
             blocked, reason = is_protected_folder(resolved)
             if blocked:
-                self.send_message(chat_id, f"⛔ <b>[Proteksi Keamanan]</b>\n{e(reason)}")
+                self.send_message(chat_id, f"⛔ <b>[Security Protection]</b>\n{e(reason)}")
                 return
             self.active_workspace = resolved
             self.continue_session = False
             self.config["default_workspace"] = resolved
             save_config(self.config)
             txt, kb = self.build_file_explorer_ui(page=0)
-            self.send_message(chat_id, f"✅ <b>Workspace pindah ke:</b> <code>{e(self.active_workspace)}</code>\n\n" + txt, reply_markup=kb)
+            self.send_message(chat_id, f"✅ <b>Workspace switched to:</b> <code>{e(self.active_workspace)}</code>\n\n" + txt, reply_markup=kb)
 
         elif cmd == "/addproject":
             proj_parts = arg.split(maxsplit=1)
             if len(proj_parts) < 2:
-                self.send_message(chat_id, "⚠️ Format: <code>/addproject &lt;nama&gt; &lt;path_folder&gt;</code>")
+                self.send_message(chat_id, "⚠️ Usage: <code>/addproject &lt;name&gt; &lt;folder_path&gt;</code>")
                 return
             name, raw_path = proj_parts[0].lower(), proj_parts[1].strip('"').strip("'")
             resolved = os.path.abspath(os.path.expanduser(raw_path))
             if not os.path.isdir(resolved):
-                self.send_message(chat_id, f"❌ Folder tidak ditemukan di PC: <code>{e(resolved)}</code>")
+                self.send_message(chat_id, f"❌ Folder not found on PC: <code>{e(resolved)}</code>")
                 return
             blocked, reason = is_protected_folder(resolved)
             if blocked:
-                self.send_message(chat_id, f"⛔ <b>[Proteksi Keamanan]</b>\n{e(reason)}")
+                self.send_message(chat_id, f"⛔ <b>[Security Protection]</b>\n{e(reason)}")
                 return
             self.config.setdefault("saved_projects", {})[name] = resolved
             save_config(self.config)
             self.send_message(
                 chat_id,
-                f"✅ Shortcut project <code>{e(name)}</code> disimpan untuk:\n<code>{e(resolved)}</code>",
+                f"✅ Project shortcut <code>{e(name)}</code> saved for:\n<code>{e(resolved)}</code>",
                 reply_markup=self.build_projects_keyboard(),
             )
 
@@ -3725,18 +3879,19 @@ class TelegramBridgeBot:
                 if not self.running_tasks:
                     self.send_message(chat_id, "✅ <b>No AI agent tasks are currently running.</b>", reply_markup=self.default_action_buttons())
                     return
-                lines = ["╭─── ⏳ <b>ACTIVE AI TASKS</b> ───╮"]
+                lines = [f"╭─── ⏳ <b>ACTIVE AI TASKS ({len(self.running_tasks)} RUNNING)</b> ───╮"]
                 kb_rows = []
                 now = time.time()
                 for tid, info in self.running_tasks.items():
                     elapsed = round(now - info["start_time"], 1)
+                    m_disp = info.get("model") or "auto"
                     lines.append(
-                        f"│ 🔹 <b>Task #{tid} [{e(info['agent'].upper())}]</b> (<code>{elapsed}s</code>)\n"
+                        f"│ 🔹 <b>Task #{tid} [{e(info['agent'].upper())} | {e(m_disp)}]</b> (<code>{elapsed}s</code>)\n"
                         f"│    📂 <code>{e(info['workspace'])}</code>\n"
                         f"│    💬 <i>{e(info['prompt'][:80])}</i>"
                     )
-                    kb_rows.append([{"text": f"🛑 Stop Task #{tid} ({info['agent']})", "callback_data": f"kill:{tid}"}])
-                lines.append("╰──────────────────────────────────╯")
+                    kb_rows.append([{"text": f"🛑 Stop Task #{tid} ({info['agent'].upper()})", "callback_data": f"kill:{tid}"}])
+                lines.append("╰──────────────────────────────────────────╯")
                 self.send_message(chat_id, "\n".join(lines), reply_markup={"inline_keyboard": kb_rows})
 
         elif cmd == "/kill":
@@ -3771,21 +3926,21 @@ class TelegramBridgeBot:
                 kb = {
                     "inline_keyboard": [
                         [
-                            {"text": "⚠️ Ya, Jalankan Command", "callback_data": f"confirm_ok:{conf_id}"},
-                            {"text": "❌ Batalkan", "callback_data": f"confirm_no:{conf_id}"},
+                            {"text": "⚠️ Yes, Execute Command", "callback_data": f"confirm_ok:{conf_id}"},
+                            {"text": "❌ Cancel", "callback_data": f"confirm_no:{conf_id}"},
                         ]
                     ]
                 }
                 self.send_message(
                     chat_id,
-                    f"🛡️ <b>[Konfirmasi Perintah Terminal Berbahaya]</b>\nAnda akan menjalankan:\n<pre><code>{e(arg)}</code></pre>\ndi folder <code>{e(self.active_workspace)}</code>.\n\nYakin lanjutkan?",
+                    f"🛡️ <b>[Sensitive Terminal Command Confirmation]</b>\nYou are about to run:\n<pre><code>{e(arg)}</code></pre>\nin folder <code>{e(self.active_workspace)}</code>.\n\nAre you sure?",
                     reply_markup=kb,
                 )
                 return
             self._execute_shell_cmd(chat_id, arg)
 
         else:
-            self.send_message(chat_id, "❓ Perintah tidak dikenal. Ketik /help untuk membuka Dashboard Utama.")
+            self.send_message(chat_id, "❓ Unknown command. Type /help to open the Main Dashboard.")
 
     def process_update(self, update: dict) -> None:
         if "callback_query" in update:
@@ -3803,14 +3958,14 @@ class TelegramBridgeBot:
         if not self.allowed_chat_id:
             self.allowed_chat_id = chat_id
             save_env_key("TELEGRAM_CHAT_ID", chat_id)
-            print(f"✅ Auto-Paired! Chat ID Anda ({chat_id}) telah disimpan ke D:\\ai-bot\\.env")
+            print(f"✅ Auto-Paired! Chat ID ({chat_id}) saved to D:\\ai-bot\\.env")
             self.send_message(
                 chat_id,
-                f"🎉 <b>Berhasil Terhubung!</b>\nChat ID Anda (<code>{chat_id}</code>) otomatis disimpan ke .env.",
+                f"🎉 <b>Connected Successfully!</b>\nYour Chat ID (<code>{chat_id}</code>) has been saved to .env.",
             )
 
         if chat_id != self.allowed_chat_id:
-            print(f"⛔ Akses ditolak dari Chat ID asing: {chat_id}")
+            print(f"⛔ Access denied from unauthorized Chat ID: {chat_id}")
             return
 
         attached_path = ""
@@ -3831,7 +3986,7 @@ class TelegramBridgeBot:
             if voice_path:
                 wait_id = self.send_message(
                     chat_id,
-                    "🎙️ <b>Mendengarkan & mengubah Voice Note menjadi teks prompt...</b>",
+                    "🎙️ <b>Transcribing Voice Note to prompt text...</b>",
                 )
                 transcript = transcribe_voice_note(voice_path)
                 self.delete_message(chat_id, wait_id)
@@ -3840,17 +3995,17 @@ class TelegramBridgeBot:
                     final_prompt = f"{caption_extra}\n{transcript}".strip() if caption_extra else transcript
                     self.send_message(
                         chat_id,
-                        f"🎙️ <b>Hasil Transkripsi Suara:</b>\n<pre><code>{e(final_prompt)}</code></pre>",
+                        f"🎙️ <b>Voice Transcription Result:</b>\n<pre><code>{e(final_prompt)}</code></pre>",
                     )
                     self.open_prompt_launchpad(chat_id, final_prompt)
                 else:
-                    fallback_prompt = caption_extra or "Tolong dengarkan file audio lampiran ini dan kerjakan instruksi di dalamnya."
+                    fallback_prompt = caption_extra or "Please listen to this attached audio file and execute the instructions inside."
                     self.open_prompt_launchpad(chat_id, fallback_prompt, attached_file=voice_path)
             return
 
         text = (msg.get("text") or msg.get("caption") or "").strip()
         if attached_path and not text:
-            text = "Tolong analisis gambar/file ini dan jelaskan atau perbaiki jika ada error."
+            text = "Please analyze this attached image/file and explain or fix any issues."
 
         if not text:
             return
@@ -3862,22 +4017,22 @@ class TelegramBridgeBot:
 
     def register_commands_menu(self) -> bool:
         commands = [
-            {"command": "help", "description": "🏠 Buka Dashboard Utama & Kontrol Cepat"},
-            {"command": "ping", "description": "🟢 Cek Status Bot Online & Detak Jantung AI"},
+            {"command": "help", "description": "🏠 Open Main Dashboard & Quick Controls"},
+            {"command": "ping", "description": "🟢 Check Bot Online Status & AI Heartbeat"},
             {"command": "git", "description": "🔀 Git Control Center (Diff, Commit, Push, Branch)"},
-            {"command": "preview", "description": "🌐 Buka Live Web Preview (Tunnel HTTPS ke HP)"},
-            {"command": "presets", "description": "⚡ Template Prompt Cepat (Review, Test, Refactor)"},
-            {"command": "queue", "description": "📋 Lihat & kelola Antrean Prompt Otomatis"},
-            {"command": "files", "description": "🗂️ Buka GUI File Explorer (Jelajahi Folder & File)"},
-            {"command": "models", "description": "🧠 Pilih / ganti Model AI (tombol interaktif)"},
-            {"command": "projects", "description": "📂 Pilih / pindah folder project (Auto-Scan)"},
-            {"command": "agents", "description": "🤖 Pilih / ganti AI Agent default"},
-            {"command": "mode", "description": "🛡️ Ganti Mode 🟢 AMAN (Plan) vs 🔴 EDIT (Build)"},
-            {"command": "ss", "description": "📸 Ambil screenshot layar laptop saat ini"},
-            {"command": "sys", "description": "💻 Dashboard Kesehatan Laptop (Baterai, RAM, CPU)"},
+            {"command": "preview", "description": "🌐 Open Live Web Preview (HTTPS Tunnel to Phone)"},
+            {"command": "presets", "description": "⚡ Quick Prompt Templates (Review, Test, Refactor)"},
+            {"command": "queue", "description": "📋 View & Manage Smart Prompt Queue"},
+            {"command": "files", "description": "🗂️ Open GUI File Explorer (Browse Drives & Files)"},
+            {"command": "models", "description": "🧠 Select / Switch AI Model (Interactive Buttons)"},
+            {"command": "projects", "description": "📂 Select / Switch Project Folder (Auto-Scan)"},
+            {"command": "agents", "description": "🤖 Select / Switch Default AI Agent"},
+            {"command": "mode", "description": "🛡️ Toggle 🟢 SAFE (Plan) vs 🔴 EDIT (Build) Mode"},
+            {"command": "ss", "description": "📸 Capture Live Laptop Screenshot"},
+            {"command": "sys", "description": "💻 Laptop Health Dashboard (Battery, RAM, CPU)"},
             {"command": "power", "description": "🔌 Remote Power Control (Lock, Sleep, Hibernate)"},
-            {"command": "tasks", "description": "⏳ Lihat & hentikan AI Agent yang sedang berjalan"},
-            {"command": "new", "description": "🧹 Mulai topik/sesi percakapan baru"},
+            {"command": "tasks", "description": "⏳ View & Stop Running Parallel AI Tasks"},
+            {"command": "new", "description": "🧹 Start a Fresh Conversation Session"},
         ]
         res = self.api_call("setMyCommands", {"commands": commands}, timeout=10)
         return bool(res.get("ok"))
