@@ -38,6 +38,23 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+_ORIG_GETADDRINFO = socket.getaddrinfo
+
+
+def _telegram_fast_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    """
+    Prioritizes IPv6 (AF_INET6) for api.telegram.org to avoid ISP IPv4 TLS handshake blackholes.
+    """
+    res = _ORIG_GETADDRINFO(host, port, family, type, proto, flags)
+    if isinstance(host, str) and "telegram.org" in host.lower():
+        v6 = [r for r in res if r[0] == socket.AF_INET6]
+        if v6:
+            return v6
+    return res
+
+
+socket.getaddrinfo = _telegram_fast_getaddrinfo
+
 BASE_DIR = Path(__file__).resolve().parent
 ENV_FILE = BASE_DIR / ".env"
 CONFIG_FILE = BASE_DIR / "config.json"
@@ -1133,20 +1150,42 @@ class TelegramBridgeBot:
     def api_call(self, method: str, payload: dict, timeout: int = 35) -> dict:
         url = f"{self.api_base}/{method}"
         body = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            err_body = exc.read().decode("utf-8", errors="ignore")
-            return {"ok": False, "error": err_body}
-        except Exception as exc:
-            return {"ok": False, "error": str(exc)}
+        max_attempts = 1 if method in ("getUpdates", "sendChatAction") else 3
+        last_err = ""
+        for attempt in range(max_attempts):
+            req = urllib.request.Request(
+                url,
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                err_body = exc.read().decode("utf-8", errors="ignore")
+                last_err = err_body
+                if exc.code == 429 and attempt + 1 < max_attempts:
+                    retry_sec = 2
+                    try:
+                        err_json = json.loads(err_body)
+                        retry_sec = min(int((err_json.get("parameters") or {}).get("retry_after", 2)), 6)
+                    except Exception:
+                        pass
+                    time.sleep(retry_sec)
+                    continue
+                if method == "sendMessage" and "can't parse entities" not in err_body.lower():
+                    log_activity(f"⚠️ Telegram HTTP {exc.code} on {method}: {err_body[:200]}")
+                return {"ok": False, "error": err_body}
+            except Exception as exc:
+                last_err = str(exc)
+                if attempt + 1 < max_attempts:
+                    time.sleep(0.5)
+                    continue
+                if method == "sendMessage":
+                    log_activity(f"⚠️ Network error on {method}: {last_err}")
+                return {"ok": False, "error": last_err}
+        return {"ok": False, "error": last_err}
 
     def download_telegram_file(self, file_id: str, dest_name: str) -> str:
         UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1178,7 +1217,16 @@ class TelegramBridgeBot:
     def send_chat_action(self, chat_id: str, action: str = "typing") -> None:
         if not chat_id:
             return
-        self.api_call("sendChatAction", {"chat_id": chat_id, "action": action}, timeout=5)
+        now = time.time()
+        last_ts = getattr(self, "_last_chat_action_ts", 0.0)
+        if now - last_ts < 4.0:
+            return
+        self._last_chat_action_ts = now
+        threading.Thread(
+            target=self.api_call,
+            args=("sendChatAction", {"chat_id": chat_id, "action": action}, 4),
+            daemon=True,
+        ).start()
 
     def send_message(self, chat_id: str, text: str, reply_markup: dict = None, parse_mode: str = "HTML") -> int:
         if not chat_id:
@@ -2097,7 +2145,7 @@ class TelegramBridgeBot:
         active_pc_sessions = {}
 
         while True:
-            time.sleep(2.5)
+            time.sleep(6.0)
             if not self.allowed_chat_id:
                 continue
 
@@ -2256,9 +2304,12 @@ class TelegramBridgeBot:
                     if sess_key in active_pc_sessions:
                         info = active_pc_sessions[sess_key]
                         elapsed = int(now - info["start_ts"])
-                        if now - info["last_activity"] > 600:
-                            active_pc_sessions.pop(sess_key, None)
-                        else:
+                        if now - info["last_activity"] > 45:
+                            old_info = active_pc_sessions.pop(sess_key, None)
+                            if old_info:
+                                self.delete_message(self.allowed_chat_id, old_info.get("msg_id", 0))
+                        elif now - info.get("last_edit_ts", 0) >= 12:
+                            info["last_edit_ts"] = now
                             info["tick"] += 1
                             spin = SPINNERS[info["tick"] % len(SPINNERS)]
                             self.send_chat_action(self.allowed_chat_id, "typing")
@@ -2375,9 +2426,12 @@ class TelegramBridgeBot:
                         if k.startswith("oc_live:"):
                             info = active_pc_sessions[k]
                             elapsed = int(now - info["start_ts"])
-                            if now - info["last_activity"] > 300:
-                                active_pc_sessions.pop(k, None)
-                            else:
+                            if now - info["last_activity"] > 60:
+                                old_info = active_pc_sessions.pop(k, None)
+                                if old_info:
+                                    self.delete_message(self.allowed_chat_id, old_info.get("msg_id", 0))
+                            elif now - info.get("last_edit_ts", 0) >= 12:
+                                info["last_edit_ts"] = now
                                 info["tick"] += 1
                                 spin = SPINNERS[info["tick"] % len(SPINNERS)]
                                 self.send_chat_action(self.allowed_chat_id, "typing")
@@ -2726,7 +2780,7 @@ class TelegramBridgeBot:
 
             tick = 0
             while proc.poll() is None:
-                time.sleep(2.8)
+                time.sleep(5.5)
                 if proc.poll() is not None:
                     break
                 tick += 1
@@ -2734,7 +2788,8 @@ class TelegramBridgeBot:
                 elapsed = int(now - start_ts)
                 spin = SPINNERS[tick % len(SPINNERS)]
                 self.send_chat_action(chat_id, "typing")
-                self.update_live_status_banner(f"Task #{task_id} [{agent_key.upper()}] ({elapsed}s): {prompt[:50]}")
+                if tick % 5 == 0:
+                    self.update_live_status_banner(f"Task #{task_id} [{agent_key.upper()}] ({elapsed}s): {prompt[:50]}")
 
                 if not hang_alert_sent and (now - last_output_ts) > 300:
                     hang_alert_sent = True
@@ -3962,10 +4017,16 @@ class TelegramBridgeBot:
                 reply_markup=self.build_projects_keyboard(),
             )
 
-        elif cmd == "/tasks":
+        elif cmd in ("/tasks", "/task", "/status"):
             with self.tasks_lock:
+                q_count = len(self.task_queue)
                 if not self.running_tasks:
-                    self.send_message(chat_id, "✅ <b>No AI agent tasks are currently running.</b>", reply_markup=self.default_action_buttons())
+                    q_note = f"\n📋 <b>Queued Tasks:</b> <code>{q_count}</code> (tap 📋 Queue below)" if q_count else ""
+                    self.send_message(
+                        chat_id,
+                        f"✅ <b>No AI agent tasks are currently running.</b>{q_note}",
+                        reply_markup=self.default_action_buttons(),
+                    )
                     return
                 lines = [f"╭─── ⏳ <b>ACTIVE AI TASKS ({len(self.running_tasks)} RUNNING)</b> ───╮"]
                 kb_rows = []
@@ -3980,6 +4041,7 @@ class TelegramBridgeBot:
                     )
                     kb_rows.append([{"text": f"🛑 Stop Task #{tid} ({info['agent'].upper()})", "callback_data": f"kill:{tid}"}])
                 lines.append("╰──────────────────────────────────────────╯")
+                kb_rows.append([{"text": "🏠 Main Menu", "callback_data": "cb:home"}])
                 self.send_message(chat_id, "\n".join(lines), reply_markup={"inline_keyboard": kb_rows})
 
         elif cmd == "/kill":
@@ -4028,7 +4090,11 @@ class TelegramBridgeBot:
             self._execute_shell_cmd(chat_id, arg)
 
         else:
-            self.send_message(chat_id, "❓ Unknown command. Type /help to open the Main Dashboard.")
+            self.send_message(
+                chat_id,
+                f"❓ Unknown command <code>{e(cmd)}</code>. Type /help to open the Main Dashboard or /tasks to check running tasks.",
+                reply_markup=self.default_action_buttons(),
+            )
 
     def _safe_process_update(self, update: dict) -> None:
         try:
@@ -4038,6 +4104,8 @@ class TelegramBridgeBot:
 
     def process_update(self, update: dict) -> None:
         if "callback_query" in update:
+            cb_data = (update["callback_query"].get("data") or "")[:80]
+            log_activity(f"🔘 CALLBACK: {cb_data}")
             self.handle_callback_query(update["callback_query"])
             return
 
@@ -4062,6 +4130,8 @@ class TelegramBridgeBot:
             print(f"⛔ Access denied from unauthorized Chat ID: {chat_id}")
             return
 
+        raw_preview = (msg.get("text") or msg.get("caption") or "[media]")[:80]
+        log_activity(f"📥 RECV [{chat_id}]: {raw_preview}")
         self.send_chat_action(chat_id, "typing")
 
         attached_path = ""
@@ -4139,23 +4209,20 @@ class TelegramBridgeBot:
             print(f"❌ Token Bot tidak valid atau gagal terhubung ke Telegram: {me.get('error')}")
             sys.exit(1)
 
-        self.register_commands_menu()
-        self.update_live_status_banner("", force=True)
+        def _bg_startup_init():
+            try:
+                self.register_commands_menu()
+                self.update_live_status_banner("", force=True)
+            except Exception:
+                pass
+
+        threading.Thread(target=_bg_startup_init, daemon=True).start()
         self.start_session_watcher()
         start_windows_anti_sleep()
 
         bot_info = me.get("result", {})
         bot_username = bot_info.get("username", "UnknownBot")
-        print("=" * 60)
-        print(f"🤖 Bot Telegram Aktif: @{bot_username} (PID: {os.getpid()})")
-        print(f"🎨 Rich Dashboard UI & GUI File Explorer : Aktif")
-        print(f"🛡️ Mode Keamanan     : {self.mode_label()}")
-        print(f"📂 Workspace Default : {self.active_workspace}")
-        print(f"🧠 Agent & Model     : {self.active_agent} | {self.active_model}")
-        if self.allowed_chat_id:
-            print(f"🔒 Terkunci ke ChatID: {self.allowed_chat_id}")
-        print("=" * 60)
-        sys.stdout.flush()
+        log_activity(f"🟢 Bot Online & Polling: @{bot_username} (PID: {os.getpid()})")
 
         offset = 0
         initial = self.api_call("getUpdates", {"offset": 0, "timeout": 1}, timeout=10)
