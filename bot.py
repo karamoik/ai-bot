@@ -1017,7 +1017,29 @@ class TelegramBridgeBot:
         if not os.path.isdir(self.active_workspace) or blocked:
             self.active_workspace = str(BASE_DIR)
 
-        self.cached_models = fetch_available_models(self.active_agent)
+        self.models_by_agent = {
+            "opencode": [
+                "opencode/deepseek-v4.1-flash-free",
+                "opencode/glm-5.3-flash-free",
+                "opencode/mimo-v2.6-flash-free",
+                "opencode/nemotron-3.5-lightning-free",
+                "opencode/big-pickle",
+                "opencode/nemotron-3.5-super-vl-free",
+                "opencode/beam-free",
+                "opencode/crouton-alpha-free",
+                "opencode/flint-40b-free",
+                "opencode/pulse-alpha-free",
+            ],
+            "agy": [
+                "gemini-4-argon-high",
+                "gemini-4-argon-medium",
+                "gemini-3.8-flash-high",
+                "claude-opus-5-5-high",
+                "claude-sonnet-5-5-high",
+                "gpt-oss-120b-medium",
+            ],
+        }
+        self.cached_models = list(self.models_by_agent.get(self.active_agent, []))
         self.explorer_entries = []
         self.explorer_current_path = "this_pc"
         self.tasks_lock = threading.Lock()
@@ -1026,13 +1048,68 @@ class TelegramBridgeBot:
         self.task_queue = []
         self.queue_counter = 0
         self.pending_confirmations = {}
-        self.pending_launchpads = {}
+        self.pending_launchpads = dict(self.config.get("pending_launchpads") or {})
         self.active_tunnel = None  # {"port": int, "url": str, "process": Popen, "start_time": float}
         self.low_battery_notified = False
         self.last_battery_check_ts = 0.0
         self.pinned_status_msg_id = int(self.config.get("pinned_status_msg_id", 0) or 0)
         self.last_banner_state = ""
         self.last_banner_update_ts = 0.0
+        threading.Thread(target=self._warmup_models_cache, daemon=True).start()
+
+    def _warmup_models_cache(self) -> None:
+        for ag in ("opencode", "agy"):
+            try:
+                fetched = fetch_available_models(ag)
+                if fetched:
+                    self.models_by_agent[ag] = fetched
+                    if ag == self.active_agent:
+                        self.cached_models = list(fetched)
+            except Exception:
+                pass
+
+    def get_cached_models_for_agent(self, agent_key: str, force_refresh: bool = False) -> list:
+        if force_refresh or agent_key not in self.models_by_agent or not self.models_by_agent[agent_key]:
+            fetched = fetch_available_models(agent_key)
+            if fetched:
+                self.models_by_agent[agent_key] = fetched
+        self.cached_models = list(self.models_by_agent.get(agent_key) or fetch_available_models(agent_key))
+        return self.cached_models
+
+    def _save_launchpads(self) -> None:
+        try:
+            self.config["pending_launchpads"] = self.pending_launchpads
+            save_config(self.config)
+        except Exception:
+            pass
+
+    def _ensure_launchpad(self, pad_id: str, msg: dict = None) -> dict:
+        if pad_id in self.pending_launchpads:
+            return self.pending_launchpads[pad_id]
+        raw_txt = (msg or {}).get("text") or ""
+        extracted_prompt = ""
+        for marker in ("Your Prompt:\n", "Prompt Anda:\n"):
+            if marker in raw_txt:
+                tail = raw_txt.split(marker, 1)[1]
+                for end_m in ("\n👇", "\nSelect", "\nPilih"):
+                    if end_m in tail:
+                        tail = tail.split(end_m, 1)[0]
+                extracted_prompt = tail.strip()
+                break
+        if not extracted_prompt and raw_txt:
+            extracted_prompt = raw_txt.strip()
+        if extracted_prompt:
+            self.pending_launchpads[pad_id] = {
+                "prompt": extracted_prompt,
+                "attached_file": "",
+                "agent": self.active_agent,
+                "model": self.get_model_for_agent(self.active_agent),
+                "workspace": self.active_workspace,
+                "safe_mode": self.safe_mode,
+            }
+            self._save_launchpads()
+            return self.pending_launchpads[pad_id]
+        return {}
 
     def get_model_for_agent(self, agent_key: str) -> str:
         saved = self.agent_models.get(agent_key, "")
@@ -1040,7 +1117,7 @@ class TelegramBridgeBot:
             return saved
         if is_model_compatible_with_agent(self.active_model, agent_key):
             return self.active_model
-        avail = fetch_available_models(agent_key)
+        avail = self.models_by_agent.get(agent_key) or fetch_available_models(agent_key)
         chosen = avail[0] if avail else "default"
         self.agent_models[agent_key] = chosen
         return chosen
@@ -1911,8 +1988,7 @@ class TelegramBridgeBot:
         pad = self.pending_launchpads.get(pad_id, {}) if pad_id else {}
         target_agent = pad.get("agent", self.active_agent)
         current_model = pad.get("model", self.active_model)
-        if not self.cached_models:
-            self.cached_models = fetch_available_models(target_agent)
+        self.cached_models = self.get_cached_models_for_agent(target_agent)
 
         page_size = 8
         total = len(self.cached_models)
@@ -2325,7 +2401,7 @@ class TelegramBridgeBot:
 
     def open_prompt_launchpad(self, chat_id: str, prompt: str, attached_file: str = "") -> None:
         pad_id = uuid.uuid4().hex[:8]
-        if len(self.pending_launchpads) > 20:
+        if len(self.pending_launchpads) > 25:
             oldest = next(iter(self.pending_launchpads))
             self.pending_launchpads.pop(oldest, None)
 
@@ -2337,6 +2413,7 @@ class TelegramBridgeBot:
             "workspace": self.active_workspace,
             "safe_mode": self.safe_mode,
         }
+        self._save_launchpads()
         text, kb = self.build_launchpad_text_and_kb(pad_id)
         self.send_message(chat_id, text, reply_markup=kb)
 
@@ -2835,7 +2912,7 @@ class TelegramBridgeBot:
         if not chat_id or (self.allowed_chat_id and chat_id != self.allowed_chat_id):
             return
 
-        self.api_call("answerCallbackQuery", {"callback_query_id": cb_id}, timeout=5)
+        self.api_call("answerCallbackQuery", {"callback_query_id": cb_id, "text": "⚡ Processing..."}, timeout=5)
 
         # --- Handler untuk Interactive File Explorer (fexp_*) ---
         if data == "fexp_this_pc":
@@ -2975,10 +3052,12 @@ class TelegramBridgeBot:
                         "Please select <b>OPENCODE</b> or <b>AGY</b> on the Launchpad card.",
                     )
                     return
-                if pad_id in self.pending_launchpads:
-                    self.pending_launchpads[pad_id]["agent"] = chosen_agent
-                    self.pending_launchpads[pad_id]["model"] = self.get_model_for_agent(chosen_agent)
-                    self.cached_models = fetch_available_models(chosen_agent)
+                pad = self._ensure_launchpad(pad_id, msg)
+                if pad:
+                    pad["agent"] = chosen_agent
+                    pad["model"] = self.get_model_for_agent(chosen_agent)
+                    self.cached_models = self.get_cached_models_for_agent(chosen_agent)
+                    self._save_launchpads()
                     txt, kb = self.build_launchpad_text_and_kb(pad_id)
                     self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
             return
@@ -2995,7 +3074,9 @@ class TelegramBridgeBot:
                         "Please select <b>OPENCODE</b> or <b>AGY</b> on the Launchpad card above.",
                     )
                     return
+                self._ensure_launchpad(pad_id, msg)
                 pad = self.pending_launchpads.pop(pad_id, None)
+                self._save_launchpads()
                 if not pad:
                     self.edit_message(chat_id, msg_id, "ℹ️ This prompt launchpad session has already completed or expired.")
                     return
@@ -3026,18 +3107,20 @@ class TelegramBridgeBot:
         if data.startswith("pad_cancel:"):
             pad_id = data.split(":", 1)[1]
             self.pending_launchpads.pop(pad_id, None)
+            self._save_launchpads()
             self.edit_message(chat_id, msg_id, "🛑 <b>Prompt execution cancelled.</b>")
             return
 
         if data.startswith("pad_mode:"):
             pad_id = data.split(":", 1)[1]
-            if pad_id in self.pending_launchpads:
-                cur_safe = self.pending_launchpads[pad_id].get("safe_mode", self.safe_mode)
+            pad = self._ensure_launchpad(pad_id, msg)
+            if pad:
+                cur_safe = pad.get("safe_mode", self.safe_mode)
                 new_safe = not cur_safe
-                self.pending_launchpads[pad_id]["safe_mode"] = new_safe
+                pad["safe_mode"] = new_safe
                 self.safe_mode = new_safe
                 self.config["safe_mode"] = new_safe
-                save_config(self.config)
+                self._save_launchpads()
                 txt, kb = self.build_launchpad_text_and_kb(pad_id)
                 self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
             return
@@ -3046,10 +3129,10 @@ class TelegramBridgeBot:
             parts = data.split(":")
             pad_id = parts[1]
             page = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
-            pad = self.pending_launchpads.get(pad_id, {})
+            pad = self._ensure_launchpad(pad_id, msg)
             t_agent = pad.get("agent", self.active_agent)
             t_model = pad.get("model", self.get_model_for_agent(t_agent))
-            self.cached_models = fetch_available_models(t_agent)
+            self.cached_models = self.get_cached_models_for_agent(t_agent)
             self.edit_message(
                 chat_id,
                 msg_id,
@@ -3060,10 +3143,10 @@ class TelegramBridgeBot:
 
         if data.startswith("pad_refm:"):
             pad_id = data.split(":", 1)[1]
-            pad = self.pending_launchpads.get(pad_id, {})
+            pad = self._ensure_launchpad(pad_id, msg)
             t_agent = pad.get("agent", self.active_agent)
             t_model = pad.get("model", self.get_model_for_agent(t_agent))
-            self.cached_models = fetch_available_models(t_agent)
+            self.cached_models = self.get_cached_models_for_agent(t_agent, force_refresh=True)
             self.edit_message(
                 chat_id,
                 msg_id,
@@ -3076,12 +3159,15 @@ class TelegramBridgeBot:
             parts = data.split(":")
             pad_id = parts[1]
             idx = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
-            if 0 <= idx < len(self.cached_models):
-                chosen_m = self.cached_models[idx]
-                if pad_id in self.pending_launchpads:
-                    t_agent = self.pending_launchpads[pad_id].get("agent", self.active_agent)
-                    self.pending_launchpads[pad_id]["model"] = chosen_m
+            pad = self._ensure_launchpad(pad_id, msg)
+            t_agent = pad.get("agent", self.active_agent)
+            models_list = self.get_cached_models_for_agent(t_agent)
+            if 0 <= idx < len(models_list):
+                chosen_m = models_list[idx]
+                if pad:
+                    pad["model"] = chosen_m
                     self.set_model_for_agent(t_agent, chosen_m)
+                    self._save_launchpads()
                 else:
                     self.set_model_for_agent(self.active_agent, chosen_m)
             if pad_id in self.pending_launchpads:
@@ -3091,7 +3177,7 @@ class TelegramBridgeBot:
 
         if data.startswith("pad_projects:"):
             pad_id = data.split(":", 1)[1]
-            pad = self.pending_launchpads.get(pad_id, {})
+            pad = self._ensure_launchpad(pad_id, msg)
             t_ws = pad.get("workspace", self.active_workspace)
             self.edit_message(
                 chat_id,
@@ -3105,15 +3191,16 @@ class TelegramBridgeBot:
             parts = data.split(":", 2)
             if len(parts) == 3:
                 _, pad_id, proj_key = parts
+                pad = self._ensure_launchpad(pad_id, msg)
                 all_projs = discover_all_projects(self.config)
                 if proj_key in all_projs:
                     chosen_ws = all_projs[proj_key]
-                    if pad_id in self.pending_launchpads:
-                        self.pending_launchpads[pad_id]["workspace"] = chosen_ws
+                    if pad:
+                        pad["workspace"] = chosen_ws
                     self.active_workspace = chosen_ws
                     self.continue_session = False
                     self.config["default_workspace"] = chosen_ws
-                    save_config(self.config)
+                    self._save_launchpads()
                 if pad_id in self.pending_launchpads:
                     txt, kb = self.build_launchpad_text_and_kb(pad_id)
                     self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
@@ -3121,7 +3208,8 @@ class TelegramBridgeBot:
 
         if data.startswith("pad_back:"):
             pad_id = data.split(":", 1)[1]
-            if pad_id in self.pending_launchpads:
+            pad = self._ensure_launchpad(pad_id, msg)
+            if pad:
                 txt, kb = self.build_launchpad_text_and_kb(pad_id)
                 self.edit_message(chat_id, msg_id, txt, reply_markup=kb)
             return
@@ -3147,7 +3235,7 @@ class TelegramBridgeBot:
             parts = data.split(":")
             page = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
             if page == 0:
-                self.cached_models = fetch_available_models(self.active_agent)
+                self.cached_models = self.get_cached_models_for_agent(self.active_agent)
             self.edit_message(
                 chat_id,
                 msg_id,
@@ -3156,7 +3244,7 @@ class TelegramBridgeBot:
             )
 
         elif data == "cb:refresh_models":
-            self.cached_models = fetch_available_models(self.active_agent)
+            self.cached_models = self.get_cached_models_for_agent(self.active_agent, force_refresh=True)
             self.edit_message(
                 chat_id,
                 msg_id,
@@ -3942,6 +4030,12 @@ class TelegramBridgeBot:
         else:
             self.send_message(chat_id, "❓ Unknown command. Type /help to open the Main Dashboard.")
 
+    def _safe_process_update(self, update: dict) -> None:
+        try:
+            self.process_update(update)
+        except Exception as exc:
+            log_activity(f"⚠️ Error in process_update: {exc}")
+
     def process_update(self, update: dict) -> None:
         if "callback_query" in update:
             self.handle_callback_query(update["callback_query"])
@@ -3967,6 +4061,8 @@ class TelegramBridgeBot:
         if chat_id != self.allowed_chat_id:
             print(f"⛔ Access denied from unauthorized Chat ID: {chat_id}")
             return
+
+        self.send_chat_action(chat_id, "typing")
 
         attached_path = ""
         if "photo" in msg and msg["photo"]:
@@ -4066,14 +4162,13 @@ class TelegramBridgeBot:
         if initial.get("ok") and initial.get("result"):
             updates = initial["result"]
             now_ts = time.time()
-            # Proses update terbaru jika dikirim dalam 5 menit terakhir (misal /help saat bot baru nyala)
             recent_updates = [
-                u for u in updates[-3:]
-                if (now_ts - ((u.get("message") or {}).get("date") or 0)) < 300
+                u for u in updates[-5:]
+                if ("callback_query" in u) or ((now_ts - ((u.get("message") or {}).get("date") or 0)) < 300)
             ]
             offset = updates[-1]["update_id"] + 1
             for ru in recent_updates:
-                self.process_update(ru)
+                threading.Thread(target=self._safe_process_update, args=(ru,), daemon=True).start()
 
         while True:
             try:
@@ -4081,15 +4176,15 @@ class TelegramBridgeBot:
                 if res.get("ok"):
                     for item in res.get("result", []):
                         offset = item["update_id"] + 1
-                        self.process_update(item)
+                        threading.Thread(target=self._safe_process_update, args=(item,), daemon=True).start()
                 else:
-                    time.sleep(3)
+                    time.sleep(2)
             except KeyboardInterrupt:
-                print("\n🛑 Bot dihentikan oleh pengguna.")
+                print("\n🛑 Bot stopped by user.")
                 break
             except Exception as e_err:
-                log_activity(f"⚠️ Polling error sementara ({e_err}), mencoba lagi dalam 5 detik...")
-                time.sleep(5)
+                log_activity(f"⚠️ Temporary polling error ({e_err}), retrying in 3 seconds...")
+                time.sleep(3)
 
 
 def interactive_setup_if_needed() -> tuple:
