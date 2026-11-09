@@ -1027,6 +1027,9 @@ class TelegramBridgeBot:
         self.active_tunnel = None  # {"port": int, "url": str, "process": Popen, "start_time": float}
         self.low_battery_notified = False
         self.last_battery_check_ts = 0.0
+        self.pinned_status_msg_id = int(self.config.get("pinned_status_msg_id", 0) or 0)
+        self.last_banner_state = ""
+        self.last_banner_update_ts = 0.0
 
     def api_call(self, method: str, payload: dict, timeout: int = 35) -> dict:
         url = f"{self.api_base}/{method}"
@@ -1176,6 +1179,78 @@ class TelegramBridgeBot:
 
     def mode_label(self) -> str:
         return "🟢 SAFE (Plan / Read-Only)" if self.safe_mode else "🔴 EDIT (Build / Write Enabled)"
+
+    def update_live_status_banner(self, busy_info: str = "", force: bool = False) -> None:
+        """
+        Memperbarui Pinned Status Bar di bagian paling atas chat Telegram secara real-time:
+        - Saat Standby : 🟢 AI-BOT ONLINE & SIAP
+        - Saat Bekerja : 🧠⚡ AI SEDANG BERPIKIR / BEKERJA...
+        """
+        if not self.allowed_chat_id:
+            return
+        now = time.time()
+        state_key = f"BUSY:{busy_info}" if busy_info else f"IDLE:{self.active_agent}:{self.safe_mode}"
+        # Hindari rate-limit Telegram jika state sama dan baru diupdate < 25 detik lalu
+        if not force and state_key == self.last_banner_state and (now - self.last_banner_update_ts) < 25:
+            return
+
+        ts_str = time.strftime("%H:%M:%S")
+        mode_short = "🟢 SAFE" if self.safe_mode else "🔴 EDIT"
+        if busy_info:
+            banner_text = (
+                f"🧠⚡ <b>[LIVE] AI SEDANG THINKING / BEKERJA</b>\n"
+                f"⚙️ <b>Aktivitas :</b> <code>{e(busy_info[:90])}</code>\n"
+                f"📂 <b>Project   :</b> <code>{e(os.path.basename(self.active_workspace) or self.active_workspace)}</code> | 🕒 <code>{ts_str}</code>"
+            )
+        else:
+            banner_text = (
+                f"🟢 <b>AI-BOT ONLINE &amp; STANDBY (SIAP)</b>\n"
+                f"🤖 <b>Agent:</b> <code>{e(self.active_agent.upper())}</code> | 🛡️ <code>{mode_short}</code> | 💓 <code>{ts_str}</code>"
+            )
+
+        kb = {
+            "inline_keyboard": [
+                [
+                    {"text": "🏠 Dashboard (/help)", "callback_data": "cb:home"},
+                    {"text": "💓 Ping Status", "callback_data": "cb:ping"},
+                ]
+            ]
+        }
+
+        updated = False
+        if self.pinned_status_msg_id:
+            res = self.api_call(
+                "editMessageText",
+                {
+                    "chat_id": self.allowed_chat_id,
+                    "message_id": self.pinned_status_msg_id,
+                    "text": banner_text,
+                    "parse_mode": "HTML",
+                    "reply_markup": kb,
+                },
+                timeout=8,
+            )
+            if res.get("ok") or "message is not modified" in str(res.get("error", "")):
+                updated = True
+
+        if not updated:
+            new_mid = self.send_message(self.allowed_chat_id, banner_text, reply_markup=kb)
+            if new_mid:
+                self.pinned_status_msg_id = new_mid
+                self.config["pinned_status_msg_id"] = new_mid
+                save_config(self.config)
+                self.api_call(
+                    "pinChatMessage",
+                    {
+                        "chat_id": self.allowed_chat_id,
+                        "message_id": new_mid,
+                        "disable_notification": True,
+                    },
+                    timeout=8,
+                )
+
+        self.last_banner_state = state_key
+        self.last_banner_update_ts = now
 
     def default_action_buttons(self) -> dict:
         if self.safe_mode:
@@ -1849,9 +1924,12 @@ class TelegramBridgeBot:
 
     def _watcher_loop(self) -> None:
         agy_seen = {}
+        now_init = time.time()
         for p in glob.glob(str(Path.home() / ".gemini" / "*" / "brain" / "*" / ".system_generated" / "logs" / "transcript.jsonl")):
             try:
-                agy_seen[p] = os.path.getmtime(p)
+                mt = os.path.getmtime(p)
+                # Jika ada sesi Antigravity yang baru saja aktif (< 45 detik terakhir), langsung pantau!
+                agy_seen[p] = 0 if (now_init - mt) < 45 else mt
             except Exception:
                 pass
 
@@ -1933,10 +2011,20 @@ class TelegramBridgeBot:
                         thinking = (last_obj.get("thinking") or "").strip()
 
                         last_user_prompt = ""
+                        latest_turn_thinking = thinking
+                        latest_turn_tool = ""
                         for rev_line in reversed(lines):
                             try:
                                 obj = json.loads(rev_line)
-                                if obj.get("type") == "USER_INPUT" and obj.get("content"):
+                                otype = obj.get("type")
+                                if otype == "PLANNER_RESPONSE":
+                                    if not latest_turn_thinking and obj.get("thinking"):
+                                        latest_turn_thinking = obj.get("thinking", "").strip()
+                                    if not latest_turn_tool and obj.get("tool_calls"):
+                                        tcs = obj.get("tool_calls") or []
+                                        if tcs:
+                                            latest_turn_tool = tcs[-1].get("name", "tool")
+                                if otype == "USER_INPUT" and obj.get("content"):
                                     raw_u = obj.get("content", "")
                                     if "<USER_REQUEST>" in raw_u and "</USER_REQUEST>" in raw_u:
                                         raw_u = raw_u.split("<USER_REQUEST>", 1)[1].split("</USER_REQUEST>", 1)[0].strip()
@@ -1945,19 +2033,24 @@ class TelegramBridgeBot:
                             except Exception:
                                 pass
 
+                        thinking = latest_turn_thinking
                         is_finished = (step_type == "PLANNER_RESPONSE" and status == "DONE" and not has_tools and bool(content))
 
                         if not is_finished:
                             agy_seen[p] = mtime
                             self.send_chat_action(self.allowed_chat_id, "typing")
-                            current_action = "🧠 AI is thinking & analyzing..."
+                            current_action = "🧠 AI sedang berpikir & menganalisis..."
                             if step_type == "PLANNER_RESPONSE" and has_tools:
                                 tcalls = last_obj.get("tool_calls") or []
                                 if tcalls:
-                                    tname = tcalls[0].get("name", "tool")
-                                    current_action = f"🔧 Running tool: <code>{e(tname)}</code>"
+                                    tname = tcalls[-1].get("name", "tool")
+                                    current_action = f"🔧 Menjalankan tool: <code>{e(tname)}</code>"
+                            elif latest_turn_tool:
+                                current_action = f"⚙️ Memproses hasil tool: <code>{e(latest_turn_tool)}</code>..."
                             elif step_type != "USER_INPUT":
-                                current_action = f"⚙️ Processing output (<code>{e(step_type.lower())}</code>)..."
+                                current_action = f"⚙️ Memproses langkah (<code>{e(step_type.lower())}</code>)..."
+
+                            self.update_live_status_banner(f"Antigravity: {strip_html_tags(current_action)}")
 
                             think_snippet = f"\n<blockquote expandable>💭 <b>Thinking Process:</b>\n{e(thinking[-350:])}</blockquote>" if thinking else ""
 
@@ -1993,6 +2086,8 @@ class TelegramBridgeBot:
                             if sess_key in active_pc_sessions:
                                 old_info = active_pc_sessions.pop(sess_key)
                                 self.delete_message(self.allowed_chat_id, old_info.get("msg_id", 0))
+                            if not active_pc_sessions and not self.running_tasks:
+                                self.update_live_status_banner("", force=True)
 
                             dedup_key = f"agy:{p}:{step_idx}"
                             if dedup_key in notified_keys:
@@ -2075,6 +2170,8 @@ class TelegramBridgeBot:
                             if oc_live_key in active_pc_sessions:
                                 old_info = active_pc_sessions.pop(oc_live_key)
                                 self.delete_message(self.allowed_chat_id, old_info.get("msg_id", 0))
+                            if not active_pc_sessions and not self.running_tasks:
+                                self.update_live_status_banner("", force=True)
 
                             dedup_key = f"oc:{row_id}"
                             if dedup_key in notified_keys:
@@ -2380,6 +2477,7 @@ class TelegramBridgeBot:
         }
 
         self.send_chat_action(chat_id, "typing")
+        self.update_live_status_banner(f"Task #{task_id} [{agent_key.upper()}]: {prompt[:60]}", force=True)
         attach_note = f"\n│ 📎 <b>File   :</b> <code>{e(os.path.basename(attached_file))}</code>" if attached_file else ""
         model_note = f"\n│ 🧠 <b>Model  :</b> <code>{e(active_model_display)}</code>"
         status_msg_id = self.send_message(
@@ -2450,6 +2548,7 @@ class TelegramBridgeBot:
                 elapsed = int(now - start_ts)
                 spin = SPINNERS[tick % len(SPINNERS)]
                 self.send_chat_action(chat_id, "typing")
+                self.update_live_status_banner(f"Task #{task_id} [{agent_key.upper()}] ({elapsed}s): {prompt[:50]}")
 
                 if not hang_alert_sent and (now - last_output_ts) > 300:
                     hang_alert_sent = True
@@ -2524,6 +2623,10 @@ class TelegramBridgeBot:
                 f"<pre><code>{e(str(exc))}</code></pre>",
             )
             self._trigger_next_queued_task()
+        with self.tasks_lock:
+            still_busy = bool(self.running_tasks)
+        if not still_busy:
+            self.update_live_status_banner("", force=True)
             return
 
         duration = round(time.time() - start_ts, 1)
@@ -2589,6 +2692,10 @@ class TelegramBridgeBot:
             )
 
         self._trigger_next_queued_task()
+        with self.tasks_lock:
+            still_busy = bool(self.running_tasks)
+        if not still_busy:
+            self.update_live_status_banner("", force=True)
 
     def handle_screenshot(self, chat_id: str) -> None:
         self.send_chat_action(chat_id, "upload_photo")
@@ -3004,6 +3111,9 @@ class TelegramBridgeBot:
         elif data == "cb:sys":
             self.handle_command(chat_id, "/sys")
 
+        elif data == "cb:ping":
+            self.handle_command(chat_id, "/ping")
+
         elif data == "cb:status":
             self.handle_command(chat_id, "/cmd git status")
 
@@ -3404,6 +3514,23 @@ class TelegramBridgeBot:
             self.send_chat_action(chat_id, "typing")
             self.send_message(chat_id, get_system_health_html(), reply_markup=self.default_action_buttons())
 
+        elif cmd == "/ping":
+            with self.tasks_lock:
+                r_cnt = len(self.running_tasks)
+                q_cnt = len(self.task_queue)
+            uptime_sec = int(time.time() - BOT_START_TIME)
+            self.update_live_status_banner(force=True)
+            self.send_message(
+                chat_id,
+                "╭─── 🟢 <b>AI-BOT HEARTBEAT (ONLINE)</b> ───╮\n"
+                f"│ 💓 <b>Status Bot   :</b> <code>AKTIF &amp; RESPONSIF (PID {os.getpid()})</code>\n"
+                f"│ ⏱️ <b>Uptime       :</b> <code>{uptime_sec} detik</code>\n"
+                f"│ 🧠 <b>AI Thinking  :</b> <code>{r_cnt} Task Aktif | {q_cnt} Antrean</code>\n"
+                f"│ 🤖 <b>Default Agent:</b> <code>{e(self.active_agent.upper())}</code>\n"
+                "╰────────────────────────────────────────╯",
+                reply_markup=self.default_action_buttons(),
+            )
+
         elif cmd == "/git":
             if not arg:
                 txt, kb = self.build_git_center_ui()
@@ -3736,6 +3863,7 @@ class TelegramBridgeBot:
     def register_commands_menu(self) -> bool:
         commands = [
             {"command": "help", "description": "🏠 Buka Dashboard Utama & Kontrol Cepat"},
+            {"command": "ping", "description": "🟢 Cek Status Bot Online & Detak Jantung AI"},
             {"command": "git", "description": "🔀 Git Control Center (Diff, Commit, Push, Branch)"},
             {"command": "preview", "description": "🌐 Buka Live Web Preview (Tunnel HTTPS ke HP)"},
             {"command": "presets", "description": "⚡ Template Prompt Cepat (Review, Test, Refactor)"},
@@ -3761,6 +3889,7 @@ class TelegramBridgeBot:
             sys.exit(1)
 
         self.register_commands_menu()
+        self.update_live_status_banner("", force=True)
         self.start_session_watcher()
         start_windows_anti_sleep()
 
@@ -3781,7 +3910,15 @@ class TelegramBridgeBot:
         initial = self.api_call("getUpdates", {"offset": 0, "timeout": 1}, timeout=10)
         if initial.get("ok") and initial.get("result"):
             updates = initial["result"]
+            now_ts = time.time()
+            # Proses update terbaru jika dikirim dalam 5 menit terakhir (misal /help saat bot baru nyala)
+            recent_updates = [
+                u for u in updates[-3:]
+                if (now_ts - ((u.get("message") or {}).get("date") or 0)) < 300
+            ]
             offset = updates[-1]["update_id"] + 1
+            for ru in recent_updates:
+                self.process_update(ru)
 
         while True:
             try:
